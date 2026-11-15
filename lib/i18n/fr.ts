@@ -38,6 +38,7 @@ export const fr: Messages = {
     glossary: { title: "Lexique", lede: "Les termes et abréviations de poker utilisés dans l’app, expliqués simplement." },
   },
   notFound: { message: "Cette page n’existe pas." },
+  update: { ready: "Une nouvelle version est prête.", refresh: "Actualiser", later: "Plus tard" },
   install: {
     title: "Ajouter à l’écran d’accueil",
     lede: `Installe l’app${NBSP}: elle s’ouvre en plein écran et marche hors ligne, même sans réseau à la table.`,

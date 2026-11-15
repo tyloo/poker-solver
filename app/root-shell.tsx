@@ -55,8 +55,8 @@ export function RootShell({ locale, children }: { locale: Locale; children: Reac
           </main>
           <TabBar />
           <InstallPrompt />
+          <ServiceWorker />
         </I18nProvider>
-        <ServiceWorker />
         <Analytics />
       </body>
     </html>

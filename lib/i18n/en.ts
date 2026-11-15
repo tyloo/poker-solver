@@ -32,6 +32,7 @@ export const en = {
     glossary: { title: "Glossary", lede: "The poker terms and abbreviations the app uses, in plain English." },
   } satisfies Record<Tool, { title: string; lede: string }>,
   notFound: { message: "This page does not exist." },
+  update: { ready: "A new version is ready.", refresh: "Refresh", later: "Later" },
   install: {
     title: "Add to your home screen",
     lede: "Install the app: it opens full screen and works offline, even with no signal at the table.",

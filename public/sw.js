@@ -7,9 +7,13 @@ const TOOLS = ["/equity", "/ranges", "/solver", "/glossary"];
 const PAGES = ["/", ...TOOLS, "/fr", ...TOOLS.map((path) => `/fr${path}`)];
 const PRECACHE = [];
 
+// A new version waits until the page asks it to take over (the "Refresh" button), so open pages keep the assets they loaded.
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll([...PAGES, ...PRECACHE])));
-  self.skipWaiting();
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data === "skip-waiting") self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {

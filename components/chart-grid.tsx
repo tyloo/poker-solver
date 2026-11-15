@@ -2,18 +2,16 @@
 
 import { RangeGrid } from "@/components/range-grid";
 import type { Chart } from "@/lib/charts/chart-files";
-import { type ActionColour, type ActionName, describeChart } from "@/lib/charts/model";
+import type { ActionColour, ActionName } from "@/lib/charts/model";
 import { formatPercent } from "@/lib/format";
+import { describeChart } from "@/lib/i18n/charts";
 import type { Locale } from "@/lib/i18n/locale";
 import { messages } from "@/lib/i18n/messages";
-import { COMBO_COUNT, HAND_CLASS_NAMES, type HandClassId, handClassCombos } from "@/lib/poker/combo";
-import { handClassWeights, type Range } from "@/lib/poker/range";
+import { HAND_CLASS_NAMES, type HandClassId, handClassCombos } from "@/lib/poker/combo";
+import { handClassWeights, type Range, rangeShare } from "@/lib/poker/range";
 import { useI18n } from "./i18n-provider";
 
 export const actionColor = (colour: ActionColour) => `var(--color-${colour})`;
-
-/** Share of all 1326 Combos in a Range, e.g. "11.6%". */
-export const rangeShare = (range: Range, locale: Locale) => formatPercent(range.reduce((sum, weight) => sum + weight, 0) / COMBO_COUNT, locale, 1);
 
 /** Action frequencies of one Hand class, largest first, e.g. "Raise 70%, Fold 30%". */
 export function classFrequencies(actions: readonly { label: string; weights: Float64Array }[], cls: HandClassId, locale: Locale): string {
@@ -41,14 +39,14 @@ export function ChartGrid({ chart, selected, onSelect }: { chart: Chart; selecte
 
 /** Key to the grid colours, with each action's share of all hands. */
 export function ActionLegend({ actions }: { actions: readonly { id: string; name: ActionName; colour: ActionColour; range: Range }[] }) {
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
   return (
     <ul className="m-0 flex list-none flex-wrap gap-x-5 gap-y-1 p-0">
       {actions.map((action) => (
         <li key={action.id} className="flex items-center gap-2">
           <span aria-hidden="true" className="size-3.5 rounded-[3px] border border-dust/40" style={{ background: actionColor(action.colour) }} />
           <span>
-            {t.actions[action.name]} <span className="text-dust">{rangeShare(action.range, locale)}</span>
+            {t.actions[action.name]} <span className="text-dust">{t.common.share(rangeShare(action.range))}</span>
           </span>
         </li>
       ))}

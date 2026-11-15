@@ -1,3 +1,4 @@
+import type { SolverError } from "./errors";
 import type { EstimateResult, SpotEstimate } from "./estimate";
 import type { NodeView } from "./solver";
 import type { Spot } from "./spot";
@@ -43,4 +44,4 @@ export type SolverResponse =
   | { type: "progress"; solveId: number; status: SolveStatus }
   | { type: "done"; solveId: number; reason: DoneReason; status: SolveStatus }
   | { type: "node"; solveId: number; requestId: number; node: NodeView }
-  | { type: "error"; solveId?: number; requestId?: number; message: string };
+  | { type: "error"; solveId?: number; requestId?: number; error: SolverError };

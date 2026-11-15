@@ -1,6 +1,7 @@
 import { CARD_COUNT, type CardId } from "@/lib/poker/card";
 import { COMBO_HAND_CLASS, HAND_CLASS_COUNT } from "@/lib/poker/combo";
-import { estimateSpot, overBudgetMessage, type SpotEstimate } from "./estimate";
+import { SolverFailure } from "./errors";
+import { estimateSpot, overBudget, type SpotEstimate } from "./estimate";
 import { createHandSet, foldValues, type HandSet, type Ranking, rankHands, sameComboIndex, showdownValues } from "./evaluation";
 import type { Player, Spot } from "./spot";
 import { type ActionNode, buildTree, type ChanceNode, type GameTree, type SolverAction, type TreeNode } from "./tree";
@@ -91,8 +92,8 @@ export class Solver {
 
   constructor(spot: Spot, options: SolverOptions = {}) {
     const sized = estimateSpot(spot, options.budgetBytes);
-    if (!sized.ok) throw new Error(sized.error);
-    if (!sized.estimate.fits) throw new Error(overBudgetMessage(sized.estimate, spot, "en"));
+    if (!sized.ok) throw new SolverFailure(sized.error);
+    if (!sized.estimate.fits) throw new SolverFailure(overBudget(sized.estimate, spot));
     this.estimate = sized.estimate;
     this.spot = spot;
     this.tree = buildTree(spot);
@@ -130,7 +131,7 @@ export class Solver {
     const compatible = new Float64Array(hands[0].combos.length);
     foldValues(compatible, hands[0], hands[1], hands[1].weights, this.same[0], 1);
     this.combinations = dot(hands[0].weights, compatible);
-    if (!(this.combinations > 0)) throw new Error("The two Ranges block each other completely");
+    if (!(this.combinations > 0)) throw new SolverFailure({ code: "blocked-ranges" });
   }
 
   iterate(count = 1): void {
@@ -181,7 +182,7 @@ export class Solver {
     const reach: [Float64Array, Float64Array] = [this.hands[0].weights.slice(), this.hands[1].weights.slice()];
     path.forEach((step, depth) => {
       if ((node.kind !== "action" && node.kind !== "chance") || !Number.isInteger(step) || step < 0 || step >= node.children.length) {
-        throw new Error(`Invalid tree path at step ${depth + 1}`);
+        throw new SolverFailure({ code: "bad-path", step: depth + 1 });
       }
       if (node.kind === "action") {
         const n = this.hands[node.player].combos.length;

@@ -7,3 +7,6 @@ export const outlineButton =
 
 export const textButton =
   "h-12 rounded-full px-4 font-bold text-dust underline decoration-2 underline-offset-4 hover:text-chalk focus-visible:outline-3 focus-visible:outline-chalk";
+
+/** A link styled as the primary button. */
+export const linkButton = `inline-flex items-center ${primaryButton}`;

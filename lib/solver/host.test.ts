@@ -105,20 +105,27 @@ describe("solver host", () => {
     expect(messages.some((m) => m.type === "done" && m.solveId === 1)).toBe(false);
     const error = next("error");
     send({ path: [], requestId: 9, solveId: 1, type: "query" });
-    expect(await error).toMatchObject({ requestId: 9, solveId: 1 });
+    expect(await error).toMatchObject({ error: { code: "solve-gone" }, requestId: 9, solveId: 1 });
   });
 
   it("reports invalid Spots and paths as errors", async () => {
     const { next, send } = harness();
     const invalid = next("error");
     send({ solveId: 1, spot: { ...kuhn(), pot: 0 }, type: "solve" });
-    expect((await invalid).message).toMatch(/pot/);
+    expect((await invalid).error).toEqual({ code: "spot", problem: { code: "pot" } });
 
     const done = next("done");
     send({ solveId: 2, spot: kuhn(), type: "solve" });
     await done;
     const badPath = next("error");
     send({ path: [5], requestId: 2, solveId: 2, type: "query" });
-    expect(await badPath).toMatchObject({ message: expect.stringMatching(/path/), requestId: 2, solveId: 2 });
+    expect(await badPath).toMatchObject({ error: { code: "bad-path", step: 1 }, requestId: 2, solveId: 2 });
+  });
+
+  it("reports a resume without a solve as a code", async () => {
+    const { next, send } = harness();
+    const error = next("error");
+    send({ solveId: 3, type: "resume" });
+    expect((await error).error).toEqual({ code: "no-solve" });
   });
 });

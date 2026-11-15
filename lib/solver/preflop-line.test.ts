@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getChart } from "@/lib/charts/charts";
 import type { ActionId, ChartKey } from "@/lib/charts/model";
 import type { Position } from "@/lib/poker/table";
-import { callerPositions, describeLine, isValidLine, linePlayers, lineSpot, OPENER_POSITIONS, type OpenerPosition, type PreflopLine } from "./preflop-line";
+import { callerPositions, isValidLine, linePlayers, lineSpot, OPENER_POSITIONS, type OpenerPosition, type PreflopLine } from "./preflop-line";
 
 const actionRange = (key: ChartKey, id: ActionId) => {
   const range = getChart(key).actions.find((action) => action.id === id)?.range;
@@ -120,20 +120,10 @@ describe("lineSpot", () => {
   });
 
   it("refuses depths below 15bb, where the Push/fold charts apply", () => {
-    expect(lineSpot(open("CO", "BB"), 12)).toEqual({ error: expect.stringMatching(/15bb/), ok: false });
+    expect(lineSpot(open("CO", "BB"), 12)).toEqual({ error: "below-min", ok: false });
   });
 
   it("refuses a caller who acts before the opener", () => {
-    expect(lineSpot(open("CO", "HJ"), 40).ok).toBe(false);
-  });
-});
-
-describe("describeLine", () => {
-  it("names the line in plain words", () => {
-    expect(describeLine(open("CO", "BB"), 40, "en")).toBe("CO opens 2.5bb, BB calls, 40bb");
-    expect(describeLine(open("BTN", "SB"), 22.5, "en")).toBe("BTN opens 2bb, SB calls, 22.5bb");
-    expect(describeLine({ kind: "limp" }, 30, "en")).toBe("SB limps, BB checks, 30bb");
-    expect(describeLine(open("CO", "BB"), 40, "fr")).toBe("CO ouvre à 2,5bb, BB calle, 40bb");
-    expect(describeLine({ kind: "limp" }, 30, "fr")).toBe("SB limpe, BB checke, 30bb");
+    expect(lineSpot(open("CO", "HJ"), 40)).toEqual({ error: "caller-after", ok: false });
   });
 });

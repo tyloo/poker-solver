@@ -11,7 +11,7 @@ import { OvalTable } from "@/components/oval-table";
 import { PlayingCard } from "@/components/playing-card";
 import { VerdictCard } from "@/components/verdict-card";
 import { BLIND_STRUCTURE } from "@/content/blind-structure";
-import { advisePreflop, limperGroupsFor, type PreflopAdvice, positionsBefore, verdictSize } from "@/lib/advisor/preflop";
+import { advisePreflop, limperGroupsFor, type PreflopAdvice, positionsBefore } from "@/lib/advisor/preflop";
 import {
   type AdvisorSetup,
   advisorParams,
@@ -24,6 +24,7 @@ import {
   type StackEntry,
   stackDepthOf,
 } from "@/lib/advisor/setup";
+import { adviceContextText, chartNoteText, chartTitle, preflopProblemText, verdictSize, verdictTitle } from "@/lib/i18n/advisor";
 import { blindLevels } from "@/lib/poker/blinds";
 import { cardFromId } from "@/lib/poker/card";
 import { MAX_PLAYERS, MIN_PLAYERS, type Position, STACK_TIER_LABELS, stackTierFor, tablePositions } from "@/lib/poker/table";
@@ -49,7 +50,7 @@ function Frequencies({ actions }: { actions: Extract<PreflopAdvice, { kind: "adv
         {actions.map((action) => (
           <li key={action.id} className={`flex items-center gap-2 ${action.frequency > 0 ? "" : "text-dust"}`}>
             <span aria-hidden="true" className="size-3.5 rounded-[3px] border border-dust/40" style={{ background: `var(--color-${action.colour})` }} />
-            {t.grid.frequency(action.label, action.frequency)}
+            {t.grid.frequency(t.actions[action.name], action.frequency)}
           </li>
         ))}
       </ul>
@@ -63,7 +64,7 @@ function Answer({ setup, prepared, advice, onPickHand }: { setup: AdvisorSetup; 
 
   let card: Parameters<typeof VerdictCard>[0]["verdict"] = null;
   let prompt = "missing" in prepared ? t.advisor.prompts[prepared.missing] : "";
-  if (advice?.kind === "invalid") prompt = advice.reason;
+  if (advice?.kind === "invalid") prompt = preflopProblemText(advice.problem, locale);
   if (advice?.kind === "walk") card = { colour: "call", detail: t.advisor.walk.detail, title: t.advisor.walk.title };
   if (advice?.kind === "advice") {
     const { verdict } = advice;
@@ -72,9 +73,10 @@ function Answer({ setup, prepared, advice, onPickHand }: { setup: AdvisorSetup; 
       aside: frequency >= 1 ? t.advisor.everyTime : t.advisor.ofTheTime(frequency),
       colour: verdict.action.colour,
       detail: verdictSize(verdict, locale, bigBlindChips(setup.stack)),
-      title: verdict.title,
+      title: verdictTitle(verdict, locale),
     };
   }
+  const context = advice?.kind === "advice" ? adviceContextText(advice.context, locale) : "";
 
   return (
     <section aria-label={t.advisor.section} className="flex flex-col gap-4">
@@ -93,18 +95,18 @@ function Answer({ setup, prepared, advice, onPickHand }: { setup: AdvisorSetup; 
           label={t.advisor.chartSays}
           verdict={card}
           prompt={prompt}
-          flipKey={advice?.kind === "advice" ? `${advice.verdict.title}|${advice.context}` : (advice?.kind ?? "")}
+          flipKey={advice?.kind === "advice" ? `${advice.verdict.name}|${context}` : (advice?.kind ?? "")}
         />
       </div>
       {advice?.kind === "advice" && (
         <>
           <Frequencies actions={advice.actions} />
           <div>
-            <p className="m-0 font-bold">{advice.context}</p>
-            {advice.note && <p className="m-0 mt-1 text-dust">{advice.note}</p>}
+            <p className="m-0 font-bold">{context}</p>
+            {advice.note && <p className="m-0 mt-1 text-dust">{chartNoteText(advice.note, locale)}</p>}
             <p className="m-0 mt-1 text-dust">
               <Link href={href(advice.href)} className={linkClass}>
-                {t.advisor.seeChart(advice.chartTitle)}
+                {t.advisor.seeChart(chartTitle(advice.chart, locale))}
               </Link>
               {advice.baseline && t.advisor.baseline}
             </p>
@@ -217,7 +219,7 @@ function StackPicker({ stack, update }: { stack: StackEntry; update: Update }) {
             >
               {LEVELS.map((level, index) => (
                 <option key={index} value={index + 1}>
-                  {t.advisor.level(index + 1, level.sb, level.bb)}
+                  {t.common.level(index + 1, level.sb, level.bb)}
                 </option>
               ))}
             </select>
@@ -231,13 +233,13 @@ function StackPicker({ stack, update }: { stack: StackEntry; update: Update }) {
 }
 
 export function AdvisorTool() {
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
   const params = useSearchParams();
   const setup = parseAdvisorParams(params);
   const [picking, setPicking] = useState(false);
   const update: Update = (patch, history = "push") => setUrlParams(advisorParams(patch), history);
   const prepared = preflopQuestion(setup);
-  const advice = "question" in prepared ? advisePreflop(prepared.question, locale) : null;
+  const advice = "question" in prepared ? advisePreflop(prepared.question) : null;
 
   const takePosition = (position: Position) => {
     const before = positionsBefore(setup.players, position);

@@ -1,6 +1,4 @@
-import type { Locale } from "@/lib/i18n/locale";
-import { type Messages, messages } from "@/lib/i18n/messages";
-import { CARD_COUNT, type CardId, cardFromId } from "@/lib/poker/card";
+import { CARD_COUNT, type CardId } from "@/lib/poker/card";
 import { COMBO_COUNT, COMBO_HI, COMBO_LO, comboId } from "@/lib/poker/combo";
 import { evaluateMasks } from "@/lib/poker/evaluator";
 import type { Range } from "@/lib/poker/range";
@@ -31,9 +29,14 @@ export type EquityOptions = {
   /** Monte Carlo stops once every player's equity has at most this standard error. */
   targetError?: number;
   random?: () => number;
-  /** Language of the error messages. */
-  locale?: Locale;
 };
+
+/** Why equity cannot be computed; `player` is an index into the players. The page words it. */
+export type EquityError =
+  | { code: "too-few" | "board-size" | "unknown-card" | "no-board" | "cannot-deal" | "too-much-overlap" }
+  | { code: "too-many"; max: number }
+  | { code: "needs-two" | "range-empty" | "range-blocked"; player: number }
+  | { code: "used-twice"; card: CardId };
 
 export type EquityJob = {
   readonly method: EquityMethod;
@@ -41,10 +44,10 @@ export type EquityJob = {
   step: (showdowns: number) => boolean;
   result: () => EquityResult;
   /** Set when sampling had to give up. */
-  readonly error: string | null;
+  readonly error: EquityError | null;
 };
 
-export type EquityJobOutcome = { ok: true; job: EquityJob } | { ok: false; error: string };
+export type EquityJobOutcome = { ok: true; job: EquityJob } | { ok: false; error: EquityError };
 
 export const MAX_PLAYERS = 8;
 
@@ -62,13 +65,6 @@ export function seededRandom(seed: number): () => number {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-const SUIT_SYMBOLS = { c: "♣", d: "♦", h: "♥", s: "♠" } as const;
-
-function cardLabel(card: CardId): string {
-  const { rank, suit } = cardFromId(card);
-  return (rank === "T" ? "10" : rank) + SUIT_SYMBOLS[suit];
 }
 
 function choose(n: number, k: number): number {
@@ -89,21 +85,21 @@ type Prepared = {
   remaining: number;
 };
 
-function prepare(input: EquityInput, t: Messages["equity"]): Prepared | string {
+function prepare(input: EquityInput): Prepared | EquityError {
   const { players, board, dead } = input;
-  if (players.length < 2) return t.tooFew;
-  if (players.length > MAX_PLAYERS) return t.tooMany(MAX_PLAYERS);
-  if (board.length > 5) return t.boardSize;
+  if (players.length < 2) return { code: "too-few" };
+  if (players.length > MAX_PLAYERS) return { code: "too-many", max: MAX_PLAYERS };
+  if (board.length > 5) return { code: "board-size" };
   for (let i = 0; i < players.length; i++) {
     const player = players[i];
-    if (player.kind === "hand" && player.cards.length !== 2) return t.needsTwo(i);
+    if (player.kind === "hand" && player.cards.length !== 2) return { code: "needs-two", player: i };
   }
 
   const blocked = new Uint8Array(CARD_COUNT);
   const known = [...players.flatMap((player) => (player.kind === "hand" ? player.cards : [])), ...board, ...dead];
   for (const card of known) {
-    if (!Number.isInteger(card) || card < 0 || card >= CARD_COUNT) return t.unknownCard;
-    if (blocked[card]) return t.usedTwice(cardLabel(card));
+    if (!Number.isInteger(card) || card < 0 || card >= CARD_COUNT) return { code: "unknown-card" };
+    if (blocked[card]) return { card, code: "used-twice" };
     blocked[card] = 1;
   }
 
@@ -127,18 +123,18 @@ function prepare(input: EquityInput, t: Messages["equity"]): Prepared | string {
       list.push(combo);
       listWeights.push(Math.min(weight, 1));
     }
-    if (!named) return t.rangeEmpty(i);
-    if (list.length === 0) return t.rangeBlocked(i);
+    if (!named) return { code: "range-empty", player: i };
+    if (list.length === 0) return { code: "range-blocked", player: i };
     combos.push(Uint16Array.from(list));
     weights.push(Float64Array.from(listWeights));
   }
 
   const dealt = players.filter((player) => player.kind !== "hand").length * 2;
   const remaining = CARD_COUNT - known.length - dealt;
-  if (remaining < 5 - board.length) return t.noBoard;
+  if (remaining < 5 - board.length) return { code: "no-board" };
 
   const ranged = players.flatMap((player, i) => (player.kind === "range" ? [i] : []));
-  if (!canDeal(ranged, combos)) return t.cannotDeal;
+  if (!canDeal(ranged, combos)) return { code: "cannot-deal" };
 
   return { blocked, board, combos, players, remaining, weights };
 }
@@ -370,7 +366,7 @@ function exactJob(prepared: Prepared): EquityJob {
  * Random deals: Range players are drawn by weight and rejected together on a card clash (so deals stay
  * proportional to the product of weights), then random players and the board come off the remaining deck.
  */
-function monteCarloJob(prepared: Prepared, options: Required<Omit<EquityOptions, "exactLimit" | "locale">>, t: Messages["equity"]): EquityJob {
+function monteCarloJob(prepared: Prepared, options: Required<Omit<EquityOptions, "exactLimit">>): EquityJob {
   const { combos, weights, blocked, board, players } = prepared;
   const { maxSamples, minSamples, targetError, random } = options;
   const count = players.length;
@@ -397,7 +393,7 @@ function monteCarloJob(prepared: Prepared, options: Required<Omit<EquityOptions,
   let stamp = 0;
   let samples = 0;
   let done = false;
-  let error: string | null = null;
+  let error: EquityError | null = null;
   let rejections = 0;
 
   const drawCombo = (index: number): number => {
@@ -462,7 +458,7 @@ function monteCarloJob(prepared: Prepared, options: Required<Omit<EquityOptions,
       while (!done && budget > 0) {
         if (!sample()) {
           if (++rejections > MAX_REJECTIONS) {
-            error = t.overlapTooMuch;
+            error = { code: "too-much-overlap" };
             done = true;
           }
           continue;
@@ -479,18 +475,17 @@ function monteCarloJob(prepared: Prepared, options: Required<Omit<EquityOptions,
 }
 
 export function createEquityJob(input: EquityInput, options: EquityOptions = {}): EquityJobOutcome {
-  const t = messages(options.locale ?? "en").equity;
-  const prepared = prepare(input, t);
-  if (typeof prepared === "string") return { error: prepared, ok: false };
+  const prepared = prepare(input);
+  if ("code" in prepared) return { error: prepared, ok: false };
   const { exactLimit, maxSamples, minSamples, targetError } = { ...DEFAULTS, ...options };
   const deals = prepared.combos.reduce((product, list) => product * list.length, 1);
   const evaluations = deals * choose(prepared.remaining, 5 - prepared.board.length) * prepared.players.length;
   if (evaluations <= exactLimit) return { job: exactJob(prepared), ok: true };
-  return { job: monteCarloJob(prepared, { maxSamples, minSamples, random: options.random ?? Math.random, targetError }, t), ok: true };
+  return { job: monteCarloJob(prepared, { maxSamples, minSamples, random: options.random ?? Math.random, targetError }), ok: true };
 }
 
 /** Runs a job to the end in one go (tests and small inputs). */
-export function computeEquity(input: EquityInput, options: EquityOptions = {}): { ok: true; result: EquityResult } | { ok: false; error: string } {
+export function computeEquity(input: EquityInput, options: EquityOptions = {}): { ok: true; result: EquityResult } | { ok: false; error: EquityError } {
   const outcome = createEquityJob(input, options);
   if (!outcome.ok) return outcome;
   while (!outcome.job.step(1_000_000));

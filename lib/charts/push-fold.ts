@@ -1,6 +1,3 @@
-import { formatList } from "@/lib/format";
-import type { Locale } from "@/lib/i18n/locale";
-import { messages } from "@/lib/i18n/messages";
 import { HAND_CLASS_COUNT } from "@/lib/poker/combo";
 import { POSITIONS, type Position, preflopOrder } from "@/lib/poker/table";
 import { type ActionRange, actionRanges, type ChartEntry, entryErrors } from "./chart-files";
@@ -81,13 +78,6 @@ export function pushFoldActions(situation: PushFoldSituation): ChartAction[] {
   return [situation === "push" ? action("push", "push", "push") : action("call", "call", "call"), action("fold", "fold", "fold", true)];
 }
 
-/** "CO push", or with a depth "BB vs late push, 8bb". */
-export function describePushFold(series: PushFoldSeries | PushFoldKey, locale: Locale): string {
-  const t = messages(locale).charts;
-  const name = series.situation === "push" ? t.push(series.position) : t.vsPush(series.position, series.pusher);
-  return "depth" in series ? t.atDepth(name, series.depth) : name;
-}
-
 export type PushPosition = Exclude<Position, "BB">;
 
 /**
@@ -116,16 +106,16 @@ export function pushFoldEntry(files: PushFoldFiles, key: PushFoldKey): ChartEntr
   return (files["vs-push"].depths[key.depth]?.[key.pusher] as Lookup | undefined)?.[key.position];
 }
 
-/** Every problem across the push/fold files, each prefixed by the Chart's name. */
+/** Every problem across the push/fold files, each prefixed by where it lives. */
 export function validatePushFoldFiles(files: PushFoldFiles): string[] {
-  return pushFoldKeys().flatMap((key) => entryErrors(describePushFold(key, "en"), pushFoldEntry(files, key), pushFoldActions(key.situation)));
+  return pushFoldKeys().flatMap((key) => entryErrors(pushFoldFileLocation(key), pushFoldEntry(files, key), pushFoldActions(key.situation)));
 }
 
 export type PushFoldChart = { key: PushFoldKey; actions: ActionRange[] };
 
 /** Parses a push/fold entry into its push (or call) and fold Ranges. Throws on an invalid entry. */
 export function buildPushFoldChart(key: PushFoldKey, entry: ChartEntry | undefined): PushFoldChart {
-  return { actions: actionRanges(describePushFold(key, "en"), entry, pushFoldActions(key.situation)), key };
+  return { actions: actionRanges(pushFoldFileLocation(key), entry, pushFoldActions(key.situation)), key };
 }
 
 const property = (name: string) => (/^[A-Za-z_]\w*$/.test(name) ? `.${name}` : `[${JSON.stringify(name)}]`);
@@ -150,8 +140,8 @@ export function largestDepths(byDepth: readonly Float64Array[]): (PushFoldDepth 
   });
 }
 
-/** The depths at which a Hand class is played, as spans: "1–11bb", "1–2bb and 5–7bb", or "" if never. */
-export function depthSpans(byDepth: readonly Float64Array[], cls: number, locale: Locale): string {
+/** The depths at which a Hand class is played, as `[from, to]` spans: `[[1, 2], [5, 7]]`, or none. */
+export function playedSpans(byDepth: readonly Float64Array[], cls: number): [number, number][] {
   const spans: [number, number][] = [];
   byDepth.forEach((frequencies, index) => {
     if (frequencies[cls] < PLAYED) return;
@@ -160,10 +150,7 @@ export function depthSpans(byDepth: readonly Float64Array[], cls: number, locale
     if (last && last[1] === depth - 1) last[1] = depth;
     else spans.push([depth, depth]);
   });
-  return formatList(
-    spans.map(([from, to]) => messages(locale).charts.span(from, to)),
-    locale,
-  );
+  return spans;
 }
 
 /** Ranges picker state: a Chart selection whose Situation may also be Push or Vs push, with `opener` then picking the pusher group. */

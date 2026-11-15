@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { HAND_CLASS_NAMES } from "@/lib/poker/combo";
-import { codecs, withParam, withParams } from "./url-state";
+import { codecs, urlWithParams, withParam, withParams } from "./url-state";
 
 describe("withParam", () => {
   it("sets a param and keeps the others", () => {
@@ -22,6 +22,14 @@ describe("withParams", () => {
 
   it("encodes range strings", () => {
     expect(new URLSearchParams(withParams("", { raise: "22+, AKs:0.5" })).get("raise")).toBe("22+, AKs:0.5");
+  });
+});
+
+describe("urlWithParams", () => {
+  it("keeps the path and the hash, so a Glossary anchor survives a filter change", () => {
+    expect(urlWithParams({ hash: "#spr", pathname: "/fr/glossary", search: "" }, { q: "pot" })).toBe("/fr/glossary?q=pot#spr");
+    expect(urlWithParams({ hash: "#spr", pathname: "/glossary", search: "?q=pot" }, { q: null })).toBe("/glossary#spr");
+    expect(urlWithParams({ hash: "", pathname: "/equity", search: "?board=AsKd" }, { dead: "Qh" })).toBe("/equity?board=AsKd&dead=Qh");
   });
 });
 

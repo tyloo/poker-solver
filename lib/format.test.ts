@@ -32,6 +32,11 @@ describe("formatNumber", () => {
     expect(formatNumber(3, "fr", 2)).toBe("3");
   });
 
+  it("leaves thousands ungrouped on request, for text fields", () => {
+    expect(formatNumber(1500.5, "en", 2, 0, false)).toBe("1500.5");
+    expect(formatNumber(1500.5, "fr", 2, 0, false)).toBe("1500,5");
+  });
+
   it("writes bb amounts", () => {
     expect(formatBb(2.5, "en")).toBe("2.5bb");
     expect(formatBb(7.5, "fr")).toBe("7,5bb");

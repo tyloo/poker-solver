@@ -1,7 +1,6 @@
 import { GLOSSARY } from "@/content/glossary";
 import { GLOSSARY_FR } from "@/content/glossary-fr";
-import type { Locale } from "@/lib/i18n/locale";
-import { messages } from "@/lib/i18n/messages";
+import { type Locale, localeHref } from "@/lib/i18n/locale";
 
 /** Glossary topics in page order. */
 export const GLOSSARY_TOPICS = ["numbers", "actions", "cards", "table", "ranges", "player-types", "solver"] as const;
@@ -24,7 +23,8 @@ export type GlossaryTranslation = Pick<GlossaryTerm, "term" | "abbreviation" | "
 
 export const MAX_DEFINITION_LENGTH = 320;
 
-export const glossaryHref = (id: string) => `/glossary#${id}`;
+/** Link to a term in the Glossary of `locale`. */
+export const glossaryHref = (id: string, locale: Locale) => localeHref(locale, `/glossary#${id}`);
 
 /** The term, its abbreviation and its aliases. */
 export const termNames = ({ term, abbreviation, aliases = [] }: GlossaryTerm): string[] => [term, ...(abbreviation === undefined ? [] : [abbreviation]), ...aliases];
@@ -39,12 +39,11 @@ export function filterTerms(terms: readonly GlossaryTerm[], query: string): Glos
   return terms.filter((entry) => termNames(entry).some((name) => normalise(name).includes(needle)));
 }
 
-export type GlossaryGroup = { topic: GlossaryTopic; label: string; terms: GlossaryTerm[] };
+export type GlossaryGroup = { topic: GlossaryTopic; terms: GlossaryTerm[] };
 
 /** Terms grouped in topic order; topics without terms are left out. */
-export function groupByTopic(terms: readonly GlossaryTerm[], locale: Locale): GlossaryGroup[] {
-  const labels = messages(locale).glossary.topics;
-  return GLOSSARY_TOPICS.map((topic) => ({ label: labels[topic], terms: terms.filter((entry) => entry.topic === topic), topic })).filter((group) => group.terms.length > 0);
+export function groupByTopic(terms: readonly GlossaryTerm[]): GlossaryGroup[] {
+  return GLOSSARY_TOPICS.map((topic) => ({ terms: terms.filter((entry) => entry.topic === topic), topic })).filter((group) => group.terms.length > 0);
 }
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -103,7 +102,20 @@ export function translateGlossary(terms: readonly GlossaryTerm[], translations: 
   });
 }
 
+/** English terms that the filter also finds by their translated names, abbreviations and aliases. */
+export function withTranslatedNames(terms: readonly GlossaryTerm[], translations: Readonly<Record<string, GlossaryTranslation>>): GlossaryTerm[] {
+  return terms.map((entry) => {
+    const translation = translations[entry.id];
+    if (!translation) return entry;
+    const { term, abbreviation, aliases = [] } = translation;
+    const names = [term, ...(abbreviation === undefined ? [] : [abbreviation]), ...aliases];
+    return { ...entry, aliases: [...new Set([...(entry.aliases ?? []), ...names])].filter((name) => name !== entry.term && name !== entry.abbreviation) };
+  });
+}
+
+// Each language's filter finds the other's names too, so a filter in the URL keeps working after a language switch.
+const ENGLISH_GLOSSARY = withTranslatedNames(GLOSSARY, GLOSSARY_FR);
 const FRENCH_GLOSSARY = translateGlossary(GLOSSARY, GLOSSARY_FR);
 
 /** The Glossary in a language. */
-export const glossaryTerms = (locale: Locale): readonly GlossaryTerm[] => (locale === "fr" ? FRENCH_GLOSSARY : GLOSSARY);
+export const glossaryTerms = (locale: Locale): readonly GlossaryTerm[] => (locale === "fr" ? FRENCH_GLOSSARY : ENGLISH_GLOSSARY);

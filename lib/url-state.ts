@@ -56,9 +56,13 @@ export function withParams(search: string, values: Readonly<Record<string, strin
   return query ? `?${query}` : "";
 }
 
+/** The URL of `location` with several params set; the path and hash stay. */
+export const urlWithParams = ({ pathname, search, hash }: Pick<Location, "pathname" | "search" | "hash">, values: Readonly<Record<string, string | null>>): string =>
+  `${pathname}${withParams(search, values)}${hash}`;
+
 /** Writes several query params as one history entry (each `useUrlState` setter writes only its own key). */
 export function setUrlParams(values: Readonly<Record<string, string | null>>, history: "replace" | "push" = "replace"): void {
-  const url = `${window.location.pathname}${withParams(window.location.search, values)}`;
+  const url = urlWithParams(window.location, values);
   if (history === "push") window.history.pushState(null, "", url);
   else window.history.replaceState(null, "", url);
 }

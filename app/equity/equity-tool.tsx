@@ -9,10 +9,11 @@ import { PlayingCard } from "@/components/playing-card";
 import { RangeSheet, rangeSummary } from "@/components/range-sheet";
 import type { EquityResult, PlayerEquity } from "@/lib/equity/engine";
 import { MAX_PLAYERS } from "@/lib/equity/engine";
-import { boardCodec, deadCodec, MAX_DEAD_CARDS, playersCodec, type SetupPlayer, toEquityInput } from "@/lib/equity/setup";
+import { boardCodec, deadCodec, MAX_DEAD_CARDS, type MissingInput, playersCodec, type SetupPlayer, toEquityInput } from "@/lib/equity/setup";
 import { type EquityRun, useEquity } from "@/lib/equity/use-equity";
+import { equityErrorText, equityMissingText } from "@/lib/i18n/equity";
 import type { Locale } from "@/lib/i18n/locale";
-import type { Messages } from "@/lib/i18n/messages";
+import { messages } from "@/lib/i18n/messages";
 import { type CardId, cardFromId } from "@/lib/poker/card";
 import { formatRange, parseRange } from "@/lib/poker/range";
 import { useUrlState } from "@/lib/url-state";
@@ -21,9 +22,10 @@ type OpenSheet = { kind: "hand" | "range"; player: number } | { kind: "board" | 
 
 const KINDS = ["hand", "range", "random"] as const;
 
-function statusText(run: EquityRun, missing: string | null, t: Messages): string {
-  if (missing) return missing;
-  if (run.status === "error") return run.message;
+function statusText(run: EquityRun, missing: MissingInput | null, locale: Locale): string {
+  const t = messages(locale);
+  if (missing) return equityMissingText(missing, locale);
+  if (run.status === "error") return equityErrorText(run.error, locale);
   if (run.status !== "done" && run.status !== "running") return "";
   const { result } = run;
   if (!result) return t.common.calculating;
@@ -161,11 +163,11 @@ export function EquityTool() {
   const [dead, setDead] = useUrlState("dead", deadCodec, "push");
   const [sheet, setSheet] = useState<OpenSheet>(null);
 
-  const prepared = toEquityInput({ board, dead, players }, locale);
+  const prepared = toEquityInput({ board, dead, players });
   const key = [playersCodec.serialize(players), boardCodec.serialize(board), deadCodec.serialize(dead)].join("|");
-  const run = useEquity(prepared.ok ? prepared.input : null, key, locale);
+  const run = useEquity(prepared.ok ? prepared.input : null, key);
   const result = visibleResult(run);
-  const status = statusText(run, prepared.ok ? null : prepared.reason, t);
+  const status = statusText(run, prepared.ok ? null : prepared.reason, locale);
 
   const handCards = (except?: number) => players.flatMap((player, i) => (player.kind === "hand" && i !== except ? player.cards : []));
   const updatePlayer = (index: number, player: SetupPlayer) => setPlayers(players.map((other, i) => (i === index ? player : other)));

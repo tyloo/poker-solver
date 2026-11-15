@@ -3,7 +3,8 @@
 import { useI18n } from "@/components/i18n-provider";
 import { RangeGrid } from "@/components/range-grid";
 import { pushFoldFrequencies } from "@/lib/charts/charts";
-import { depthSpans, describePushFold, largestDepths, PUSH_FOLD_DEPTHS, type PushFoldDepth, type PushFoldSeries, pushersFacing } from "@/lib/charts/push-fold";
+import { largestDepths, PUSH_FOLD_DEPTHS, type PushFoldDepth, type PushFoldSeries, playedSpans, pushersFacing } from "@/lib/charts/push-fold";
+import { describePushFold, spansText } from "@/lib/i18n/charts";
 import { HAND_CLASS_NAMES, type HandClassId, handClassCombos } from "@/lib/poker/combo";
 import { codecs, HAND_CLASS_PARAM, useUrlState } from "@/lib/url-state";
 
@@ -40,7 +41,7 @@ export function PushFoldView({ series }: { series: PushFoldSeries }) {
     return depth === null ? text.never(HAND_CLASS_NAMES[cls], push) : text.upTo(HAND_CLASS_NAMES[cls], depthLabel(depth), push);
   };
   const summary = (cls: HandClassId) => {
-    const spans = depthSpans(byDepth, cls, locale);
+    const spans = spansText(playedSpans(byDepth, cls), locale);
     const mixed = PUSH_FOLD_DEPTHS.filter((depth) => byDepth[depth - 1][cls] > 0 && byDepth[depth - 1][cls] < 1).map((depth) => ({ depth, share: byDepth[depth - 1][cls] }));
     const played = spans ? text.playedAt(spans, push) : text.neverPlayed(DEEPEST, push);
     return text.summary(HAND_CLASS_NAMES[cls], handClassCombos(cls).length, played, mixed.length > 0 ? text.mixed(mixed) : "");

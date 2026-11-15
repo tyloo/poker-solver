@@ -2,7 +2,7 @@ import { validateChart } from "@/lib/poker/chart-validation";
 import { COMBO_COUNT } from "@/lib/poker/combo";
 import { createRange, type Range } from "@/lib/poker/range";
 import type { Position, StackTier } from "@/lib/poker/table";
-import { type ActionId, type ChartAction, type ChartKey, chartActions, chartKeys, describeChart, type LimperGroup, type OpenerGroup } from "./model";
+import { type ActionId, type ChartAction, type ChartKey, chartActions, chartKeys, type LimperGroup, type OpenerGroup } from "./model";
 
 type Raise = { raise: string };
 type RaiseLimp = { raise: string; limp: string };
@@ -35,7 +35,7 @@ export type ChartEntry = Readonly<Partial<Record<ActionId, string>>>;
 
 export type ActionRange = ChartAction & { range: Range };
 
-/** Name it with `describeChart(chart.key, locale)`. */
+/** The UI names it with `describeChart` (`lib/i18n/charts.ts`). */
 export type Chart = { key: ChartKey; baseline: boolean; actions: ActionRange[] };
 
 type Lookup = Partial<Record<string, Partial<Record<Position, ChartEntry>>>>;
@@ -47,8 +47,8 @@ export function chartEntry(files: ChartFiles, key: ChartKey): ChartEntry | undef
   return tier[group]?.[key.position];
 }
 
-/** Problems with one Chart entry, each prefixed by the Chart's name. */
-export function chartEntryErrors(key: ChartKey, entry: ChartEntry | undefined, expected: readonly ChartAction[] = chartActions(key), title = describeChart(key, "en")): string[] {
+/** Problems with one Chart entry, each prefixed by where it lives (in English: they are for whoever edits the files). */
+export function chartEntryErrors(key: ChartKey, entry: ChartEntry | undefined, expected: readonly ChartAction[] = chartActions(key), title = chartFileLocation(key)): string[] {
   return entryErrors(title, entry, expected);
 }
 
@@ -74,7 +74,7 @@ export function validateChartFiles(files: ChartFiles): string[] {
  * Throws on an invalid entry; `actions` defaults to the Chart's standard actions.
  */
 export function buildChart(key: ChartKey, entry: ChartEntry | undefined, baseline: boolean, actions: readonly ChartAction[] = chartActions(key)): Chart {
-  return { actions: actionRanges(describeChart(key, "en"), entry, actions), baseline, key };
+  return { actions: actionRanges(chartFileLocation(key), entry, actions), baseline, key };
 }
 
 /** One Range per action of a valid entry, the remainder included. Throws with every problem, each prefixed by `title`. */

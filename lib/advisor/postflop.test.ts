@@ -22,8 +22,8 @@ const question = (overrides: Partial<PreflopQuestion>): PreflopQuestion => ({
 
 function line(overrides: Partial<PreflopQuestion>): PostflopLine {
   const input = question(overrides);
-  const result = postflopLine(input, advisePreflop(input, "en"), "en");
-  if (!result.ok) throw new Error(result.reason);
+  const result = postflopLine(input, advisePreflop(input));
+  if (!result.ok) throw new Error(JSON.stringify(result.reason));
   return result.line;
 }
 
@@ -34,8 +34,8 @@ const estimate = (type: PlayerType, key: ChartKey, action: ActionId) => {
 };
 
 function rangeOf(postflop: PostflopLine, position: PreflopQuestion["position"], type: PlayerType = "standard") {
-  const result = opponentRange(postflop, { position, type }, "en");
-  if (!result.ok) throw new Error(result.error);
+  const result = opponentRange(postflop, { position, type });
+  if (!result.ok) throw new Error(JSON.stringify(result.error));
   return result;
 }
 
@@ -64,7 +64,7 @@ describe("postflopNumbers", () => {
 });
 
 describe("postflopVerdict", () => {
-  const verdict = (equity: number, input: { pot: number; bet: number; stack: number }, opponents = 1) => postflopVerdict({ equity, opponents, ...input }, "en").kind;
+  const verdict = (equity: number, input: { pot: number; bet: number; stack: number }, opponents = 1) => postflopVerdict({ equity, opponents, ...input }).kind;
 
   it("calls or folds facing a bet by pot odds", () => {
     expect(verdict(0.26, { bet: 50, pot: 100, stack: 1000 })).toBe("call");
@@ -88,24 +88,24 @@ describe("postflopVerdict", () => {
     expect(verdict(0.42, { bet: 0, pot: 100, stack: 1000 }, 2)).toBe("check");
   });
 
-  it("labels itself as a heuristic with a reason", () => {
-    const result = postflopVerdict({ bet: 50, equity: 0.3, opponents: 1, pot: 100, stack: 1000 }, "en");
-    expect(result.title).toBe("Call");
-    expect(result.reason).toBe("30% equity beats the 25% the price needs.");
-    const french = postflopVerdict({ bet: 50, equity: 0.2, opponents: 1, pot: 100, stack: 1000 }, "fr");
-    expect(french.title).toBe("Se coucher");
-    expect(french.reason).toBe("20\u00a0% d’équité, c’est moins que les 25\u00a0% qu’exige la cote.");
+  it("gives its reason with the numbers behind it", () => {
+    expect(postflopVerdict({ bet: 50, equity: 0.3, opponents: 1, pot: 100, stack: 1000 })).toEqual({ kind: "call", reason: { code: "beats", equity: 0.3, needed: 0.25 } });
+    expect(postflopVerdict({ bet: 50, equity: 0.2, opponents: 1, pot: 100, stack: 1000 })).toEqual({ kind: "fold", reason: { code: "short", equity: 0.2, needed: 0.25 } });
+    expect(postflopVerdict({ bet: 50, equity: 0.5, opponents: 1, pot: 100, stack: 150 })).toEqual({ kind: "push", reason: { code: "low-spr", equity: 0.5, spr: 1.5 } });
+    expect(postflopVerdict({ bet: 0, equity: 0.7, opponents: 1, pot: 100, stack: 1000 })).toEqual({ kind: "bet", reason: { code: "strong", equity: 0.7, fair: 0.5 } });
   });
 });
 
 describe("postflopLine", () => {
   it("has no postflop after an all-in or a walk", () => {
     const pushed = question({ depth: 8 });
-    expect(postflopLine(pushed, advisePreflop(pushed, "en"), "en").ok).toBe(false);
+    expect(postflopLine(pushed, advisePreflop(pushed))).toEqual({ ok: false, reason: { code: "push-fold" } });
     const vsPush = question({ depth: 8, position: "BB", situation: { kind: "push", pusher: "BTN" } });
-    expect(postflopLine(vsPush, advisePreflop(vsPush, "en"), "en").ok).toBe(false);
+    expect(postflopLine(vsPush, advisePreflop(vsPush))).toEqual({ ok: false, reason: { code: "push-fold" } });
     const walk = question({ position: "BB" });
-    expect(postflopLine(walk, advisePreflop(walk, "en"), "en").ok).toBe(false);
+    expect(postflopLine(walk, advisePreflop(walk))).toEqual({ ok: false, reason: { code: "walk" } });
+    const invalid = question({ depth: 0 });
+    expect(postflopLine(invalid, advisePreflop(invalid))).toEqual({ ok: false, reason: { code: "invalid", problem: { code: "no-stack" } } });
   });
 
   it("assumes the hero entered the pot with the Chart's most frequent action other than fold", () => {
@@ -140,7 +140,7 @@ describe("opponentRange", () => {
   it("callers of the hero's open use their Vs open call Range", () => {
     const result = rangeOf(line({ position: "CO" }), "BB", "loose");
     expect(result.range).toEqual(estimate("loose", { opener: "late", position: "BB", situation: "vs-open", tier: "40bb+" }, "call"));
-    expect(result.line).toBe("called your open");
+    expect(result.line).toBe("called-your-open");
   });
 
   it("the BB checks behind an SB limp", () => {
@@ -160,8 +160,8 @@ describe("opponentRange", () => {
 
   it("after a 3-bet the opener keeps their open Range, with a note", () => {
     const result = rangeOf(line({ hand: hand("AcAd"), position: "BTN", situation: { kind: "open", opener: "CO" } }), "CO");
-    expect(result.line).toBe("called your 3-bet");
-    expect(result.note).toMatch(/open Range/);
+    expect(result.line).toBe("called-3-bet");
+    expect(result.note).toEqual({ code: "3-bet", position: "CO" });
   });
 
   it("limpers use their open limp Range, or their overlimp Range when they never open-limp", () => {
@@ -171,7 +171,7 @@ describe("opponentRange", () => {
     expect(loose.note).toBeNull();
     const tight = rangeOf(postflop, "UTG", "tight");
     expect(tight.range).toEqual(estimate("tight", { limpers: "1", position: "UTG+1", situation: "vs-limpers", tier: "40bb+" }, "limp"));
-    expect(tight.note).toMatch(/overlimp/);
+    expect(tight.note).toEqual({ code: "open-limp", position: "UTG", type: "tight" });
   });
 
   it("players behind an overlimp overlimp or check, behind an iso-raise they call", () => {
@@ -182,12 +182,13 @@ describe("opponentRange", () => {
 
     const iso = line({ hand: hand("AcAd"), position: "HJ", situation: { kind: "limps", limpers: "1" } });
     expect(rangeOf(iso, "BB").range).toEqual(estimate("standard", { opener: "middle", position: "BB", situation: "vs-open", tier: "40bb+" }, "call"));
-    expect(rangeOf(iso, "BB").line).toBe("called your raise");
+    expect(rangeOf(iso, "BB").line).toBe("called-raise");
+    expect(rangeOf(iso, "BB").note).toEqual({ code: "iso-raise" });
   });
 
   it("rejects Positions that folded before the flop", () => {
-    expect(opponentRange(line({ position: "CO" }), { position: "HJ", type: "standard" }, "en").ok).toBe(false);
-    expect(opponentRange(line({ position: "CO" }), { position: "CO", type: "standard" }, "en").ok).toBe(false);
+    expect(opponentRange(line({ position: "CO" }), { position: "HJ", type: "standard" })).toEqual({ error: { code: "folded-before", position: "HJ" }, ok: false });
+    expect(opponentRange(line({ position: "CO" }), { position: "CO", type: "standard" }).ok).toBe(false);
   });
 });
 

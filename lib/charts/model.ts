@@ -1,6 +1,4 @@
-import type { Locale } from "@/lib/i18n/locale";
-import { messages } from "@/lib/i18n/messages";
-import { POSITIONS, type Position, preflopOrder, STACK_TIER_LABELS, STACK_TIERS, type StackTier } from "@/lib/poker/table";
+import { POSITIONS, type Position, preflopOrder, STACK_TIERS, type StackTier } from "@/lib/poker/table";
 
 /** Situations with raising Charts. Push and Vs push have their own Push/fold charts. */
 export const SITUATIONS = ["open", "vs-open", "vs-limpers"] as const;
@@ -84,15 +82,6 @@ export function chartActions(key: ChartKey, written?: readonly ActionId[]): Char
   if (key.situation === "vs-open") return [action("raise", "3-bet", "raise"), action("call", "call", "call"), fold];
   if (key.position === "BB") return [action("raise", "raise", "raise"), action("check", "check", "call", true)];
   return [action("raise", "iso-raise", "raise"), action("limp", "overlimp", "call"), fold];
-}
-
-/** Plain-words name such as "BB vs late open, 25bb". */
-export function describeChart(key: ChartKey, locale: Locale): string {
-  const t = messages(locale).charts;
-  const tier = STACK_TIER_LABELS[key.tier];
-  if (key.situation === "open") return t.open(key.position, tier);
-  if (key.situation === "vs-open") return t.vsOpen(key.position, key.opener, tier);
-  return t.vsLimpers(key.position, key.limpers, tier);
 }
 
 /** Query-string names and defaults shared by the Ranges tool and links into it. */

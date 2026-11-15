@@ -3,15 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { toolPath } from "@/lib/i18n/locale";
+import { TOOLS } from "@/lib/tools";
 import { useI18n } from "./i18n-provider";
-
-const TOOLS = [
-  { href: "/", tool: "advisor" },
-  { href: "/equity", tool: "equity" },
-  { href: "/ranges", tool: "ranges" },
-  { href: "/solver", tool: "solver" },
-  { href: "/glossary", tool: "glossary" },
-] as const;
 
 export function TabBar() {
   const { t, href: localised } = useI18n();
@@ -20,10 +13,10 @@ export function TabBar() {
   return (
     <nav aria-label={t.tabs.label} className="fixed inset-x-0 bottom-0 z-40 border-booth border-t-2 bg-night pb-[env(safe-area-inset-bottom)]">
       <ul className="mx-auto grid max-w-[30rem] grid-cols-5">
-        {TOOLS.map(({ href, tool }) => {
+        {TOOLS.map(({ id, path: href }) => {
           const active = href === "/" ? path === "/" : path.startsWith(href);
           return (
-            <li key={href}>
+            <li key={id}>
               <Link
                 href={localised(href)}
                 aria-current={active ? "page" : undefined}
@@ -32,7 +25,7 @@ export function TabBar() {
                 }`}
               >
                 {active && <span aria-hidden="true" className="absolute inset-x-5 -top-0.5 h-[3px] rounded-b-full bg-raise" />}
-                {t.tabs[tool]}
+                {t.tabs[id]}
               </Link>
             </li>
           );

@@ -201,7 +201,7 @@ export const GLOSSARY_FR: Readonly<Record<string, GlossaryTranslation>> = {
   position: {
     aliases: ["Positions"],
     definition:
-      "Ta place par rapport au bouton, qui fixe l’ordre de parole. Les positions tardives parlent après les autres et peuvent jouer plus de mains. À une table 8-max : UTG, UTG+1, LJ, HJ, CO, BTN, SB, BB.",
+      "Où tu te trouves par rapport au bouton, ce qui fixe l’ordre de parole. Les positions tardives parlent après les autres et peuvent jouer plus de mains. À une table 8-max : UTG, UTG+1, LJ, HJ, CO, BTN, SB, BB.",
     term: "Position",
   },
   utg: {
@@ -213,7 +213,7 @@ export const GLOSSARY_FR: Readonly<Record<string, GlossaryTranslation>> = {
     term: "Under the gun +1",
   },
   lj: {
-    definition: "Lojack, la position après UTG+1, trois places avant le bouton. À une table à 6, c’est elle qui parle en premier.",
+    definition: "Lojack, la position après UTG+1, trois positions avant le bouton. À une table à 6, c’est elle qui parle en premier.",
     term: "Lojack",
   },
   hj: {

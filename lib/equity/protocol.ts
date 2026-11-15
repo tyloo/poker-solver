@@ -1,10 +1,8 @@
-import type { Locale } from "@/lib/i18n/locale";
-import { createEquityJob, type EquityInput, type EquityOptions, type EquityResult } from "./engine";
+import { createEquityJob, type EquityError, type EquityInput, type EquityOptions, type EquityResult } from "./engine";
 
-/** `locale` is the language of error messages. */
-export type EquityRequest = { type: "start"; id: number; input: EquityInput; locale?: Locale } | { type: "stop" };
+export type EquityRequest = { type: "start"; id: number; input: EquityInput } | { type: "stop" };
 
-export type EquityResponse = { type: "progress" | "done"; id: number; result: EquityResult } | { type: "error"; id: number; message: string };
+export type EquityResponse = { type: "progress" | "done"; id: number; result: EquityResult } | { type: "error"; id: number; error: EquityError };
 
 type RunnerOptions = {
   equity?: EquityOptions;
@@ -30,9 +28,9 @@ export function createEquityRunner(post: (message: EquityResponse) => void, opti
     if (request.type === "stop") return;
 
     const { id } = request;
-    const outcome = createEquityJob(request.input, { ...options.equity, locale: request.locale });
+    const outcome = createEquityJob(request.input, options.equity);
     if (!outcome.ok) {
-      post({ id, message: outcome.error, type: "error" });
+      post({ error: outcome.error, id, type: "error" });
       return;
     }
     const { job } = outcome;
@@ -43,7 +41,7 @@ export function createEquityRunner(post: (message: EquityResponse) => void, opti
       do done = job.step(STEP);
       while (!done && now() - sliceStart < sliceMs);
       if (done) {
-        post(job.error ? { id, message: job.error, type: "error" } : { id, result: job.result(), type: "done" });
+        post(job.error ? { error: job.error, id, type: "error" } : { id, result: job.result(), type: "done" });
         return;
       }
       if (now() - lastPost >= progressMs) {

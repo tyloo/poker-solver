@@ -1,7 +1,5 @@
 import { formatBb } from "@/lib/format";
 import type { Locale } from "@/lib/i18n/locale";
-import { messages } from "@/lib/i18n/messages";
-import { type CardId, cardFromId, formatCards } from "@/lib/poker/card";
 import type { NodeView } from "./solver";
 import { CHIPS_PER_BB } from "./spot-setup";
 import type { SolverAction } from "./tree";
@@ -9,59 +7,8 @@ import type { SolverAction } from "./tree";
 /** Solver chips in bb: 182 → "1.82bb". */
 export const formatChips = (chips: number, locale: Locale) => formatBb(chips / CHIPS_PER_BB, locale);
 
-export function actionLabel(action: SolverAction, locale: Locale): string {
-  const t = messages(locale).strategy.actionLabels;
-  switch (action.kind) {
-    case "check":
-      return t.check;
-    case "fold":
-      return t.fold;
-    case "call":
-      return t.call(formatChips(action.amount, locale));
-    case "bet":
-      return t.bet(formatChips(action.to, locale));
-    case "raise":
-      return t.raise(formatChips(action.to, locale));
-    case "allin":
-      return t.allin(formatChips(action.to, locale));
-  }
-}
-
-/** "BTN bets 1.82bb". */
-export function actionPhrase(player: string, action: SolverAction, locale: Locale): string {
-  const t = messages(locale).strategy.phrases;
-  switch (action.kind) {
-    case "check":
-      return t.check(player);
-    case "fold":
-      return t.fold(player);
-    case "call":
-      return t.call(player, formatChips(action.amount, locale));
-    case "bet":
-      return t.bet(player, formatChips(action.to, locale));
-    case "raise":
-      return t.raise(player, formatChips(action.to, locale));
-    case "allin":
-      return t.allin(player, formatChips(action.to, locale));
-  }
-}
-
-/** "Turn 7c": the card a chance node deals after a board of `boardCards`. */
-export function chanceLabel(card: CardId, boardCards: number, locale: Locale): string {
-  const t = messages(locale).strategy;
-  const name = formatCards([cardFromId(card)]);
-  return boardCards === 3 ? t.turn(name) : t.river(name);
-}
-
 /** What the tree browser needs from a node to name the steps out of it. */
 export type StepSource = Pick<NodeView, "kind" | "player" | "actions" | "cards" | "board">;
-
-/** The step out of `node` along `index`: "BTN bets 1.82bb" or "Turn 9c"; null when the node has no such step (an invalid or stale path). */
-export function stepLabel(node: StepSource, index: number, players: readonly [string, string], locale: Locale): string | null {
-  if (node.kind === "chance") return index < node.cards.length ? chanceLabel(node.cards[index], node.board.length, locale) : null;
-  if (node.kind !== "action" || node.player === null || index >= node.actions.length) return null;
-  return actionPhrase(players[node.player], node.actions[index], locale);
-}
 
 /** Grid colours per action: passive Call, all-in Push, fold Fold; bets and raises in Raise shades, the smallest lightest. */
 export function actionColours(actions: readonly SolverAction[]): string[] {

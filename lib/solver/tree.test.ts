@@ -146,18 +146,18 @@ describe("validateSpot", () => {
   });
 
   it("limits flop Spots to one bet size plus all-in", () => {
-    expect(validateSpot(spot({ board: "QsJh7d", ip: "KK", oop: "QQ" }))).toMatch(/flop/i);
+    expect(validateSpot(spot({ board: "QsJh7d", ip: "KK", oop: "QQ" }))).toEqual({ code: "flop-one-bet" });
     expect(validateSpot(spot({ betSizes: [0.5], board: "QsJh7d", ip: "KK", oop: "QQ" }))).toBeNull();
   });
 
   it("rejects bad boards, pots, stacks, sizes and empty Ranges", () => {
-    expect(validateSpot(spot({ board: "QsJh", ip: "KK", oop: "QQ" }))).toMatch(/board/i);
-    expect(validateSpot({ ...spot({ board: "QsJh7d4c", ip: "KK", oop: "QQ" }), board: [1, 1, 2, 3] })).toMatch(/board/i);
-    expect(validateSpot(spot({ board: "QsJh7d4c", ip: "KK", oop: "QQ", pot: 0 }))).toMatch(/pot/i);
-    expect(validateSpot(spot({ board: "QsJh7d4c", effectiveStack: -1, ip: "KK", oop: "QQ" }))).toMatch(/stack/i);
-    expect(validateSpot(spot({ betSizes: [0], board: "QsJh7d4c", ip: "KK", oop: "QQ" }))).toMatch(/size/i);
-    expect(validateSpot(spot({ board: "QsJh7d4c", ip: "KK", oop: "QQ", raiseSizes: [1] }))).toMatch(/raise/i);
-    expect(validateSpot(spot({ board: "QsQhQd4c", ip: "KK", oop: "QQ" }))).toMatch(/OOP/);
-    expect(validateSpot(spot({ board: "KsKhKd4c", ip: "KK", oop: "QQ" }))).toMatch(/IP/);
+    expect(validateSpot(spot({ board: "QsJh", ip: "KK", oop: "QQ" }))).toEqual({ code: "board-cards" });
+    expect(validateSpot({ ...spot({ board: "QsJh7d4c", ip: "KK", oop: "QQ" }), board: [1, 1, 2, 3] })).toEqual({ code: "bad-card" });
+    expect(validateSpot(spot({ board: "QsJh7d4c", ip: "KK", oop: "QQ", pot: 0 }))).toEqual({ code: "pot" });
+    expect(validateSpot(spot({ board: "QsJh7d4c", effectiveStack: -1, ip: "KK", oop: "QQ" }))).toEqual({ code: "stack" });
+    expect(validateSpot(spot({ betSizes: [0], board: "QsJh7d4c", ip: "KK", oop: "QQ" }))).toEqual({ code: "bet-sizes" });
+    expect(validateSpot(spot({ board: "QsJh7d4c", ip: "KK", oop: "QQ", raiseSizes: [1] }))).toEqual({ code: "raise-sizes" });
+    expect(validateSpot(spot({ board: "QsQhQd4c", ip: "KK", oop: "QQ" }))).toEqual({ code: "empty-range", player: 0 });
+    expect(validateSpot(spot({ board: "KsKhKd4c", ip: "KK", oop: "QQ" }))).toEqual({ code: "empty-range", player: 1 });
   });
 });

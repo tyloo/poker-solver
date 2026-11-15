@@ -39,16 +39,10 @@ describe("createEquityRunner", () => {
     expect(done.result.players[0].equity).toBe(15 / 44);
   });
 
-  it("reports input errors", async () => {
+  it("reports input errors as codes, for the page to translate", async () => {
     const { handle, messages } = setup();
     await handle({ id: 4, input: { ...turn, board: cards("AhKd7c") }, type: "start" });
-    expect(messages).toEqual([{ id: 4, message: "A♥ is used twice.", type: "error" }]);
-  });
-
-  it("reports input errors in the request's language", async () => {
-    const { handle, messages } = setup();
-    await handle({ id: 5, input: { ...turn, board: cards("AhKd7c") }, locale: "fr", type: "start" });
-    expect(messages).toEqual([{ id: 5, message: "A♥ est utilisée deux fois.", type: "error" }]);
+    expect(messages).toEqual([{ error: { card: cards("Ah")[0], code: "used-twice" }, id: 4, type: "error" }]);
   });
 
   it("posts progress while a long job runs", async () => {

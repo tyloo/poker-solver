@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { COMBO_COUNT, HAND_CLASS_COUNT, HAND_CLASS_NAMES, handClassCombos, parseCombo, parseHandClass } from "./combo";
-import { createRange, formatRange, handClassWeights, parseRange, type Range, setHandClassWeight } from "./range";
+import { createRange, formatRange, handClassWeights, parseRange, type Range, type RangeProblem, rangeCombos, rangeShare, setHandClassWeight } from "./range";
 
 function parsed(text: string): Range {
   const result = parseRange(text);
-  if (!result.ok) throw new Error(result.error);
+  if (!result.ok) throw new Error(JSON.stringify(result.error));
   return result.range;
 }
 
-function errorOf(text: string): string {
+function errorOf(text: string): RangeProblem {
   const result = parseRange(text);
   if (result.ok) throw new Error(`expected "${text}" to be rejected`);
   return result.error;
@@ -73,29 +73,26 @@ describe("parseRange", () => {
     expect(classesOf(parsed("2As+"))).toEqual(classesOf(parsed("A2s+")));
   });
 
-  it("rejects malformed entries with a message naming them", () => {
-    expect(errorOf("AKx")).toMatch(/"AKx"/);
-    expect(errorOf("A")).toMatch(/"A"/);
-    expect(errorOf("AKs, 1x")).toMatch(/"1x"/);
-    expect(errorOf("AAs")).toMatch(/pair/i);
-    expect(errorOf("AsAs")).toMatch(/"AsAs"/);
-    expect(errorOf("AKs:1.5")).toMatch(/frequency/i);
-    expect(errorOf("AKs:0")).toMatch(/frequency/i);
-    expect(errorOf("AKs:abc")).toMatch(/frequency/i);
-    expect(errorOf("AKs:")).toMatch(/frequency/i);
+  it("rejects malformed entries with a code and the entry", () => {
+    expect(errorOf("AKx")).toEqual({ code: "invalid", entry: "AKx" });
+    expect(errorOf("A")).toEqual({ code: "invalid", entry: "A" });
+    expect(errorOf("AKs, 1x")).toEqual({ code: "invalid", entry: "1x" });
+    expect(errorOf("AAs")).toEqual({ code: "suited-pair", entry: "AAs" });
+    expect(errorOf("AsAs")).toEqual({ code: "repeated-card", entry: "AsAs" });
+    for (const text of ["AKs:1.5", "AKs:0", "AKs:abc", "AKs:"]) expect(errorOf(text)).toEqual({ code: "frequency", entry: text });
   });
 
   it("rejects spans whose ends do not match", () => {
-    expect(errorOf("KTs-Q8s")).toMatch(/first rank/);
-    expect(errorOf("KTs-K8o")).toMatch(/suited/);
-    expect(errorOf("QQ-AKs")).toMatch(/"QQ-AKs"/);
+    expect(errorOf("KTs-Q8s")).toEqual({ code: "first-rank", entry: "KTs-Q8s" });
+    expect(errorOf("KTs-K8o")).toEqual({ code: "suffix", entry: "KTs-K8o" });
+    expect(errorOf("QQ-AKs")).toEqual({ code: "pair-ends", entry: "QQ-AKs" });
   });
 
-  it("rejects overlapping entries", () => {
-    expect(errorOf("AKs, AQs+")).toMatch(/AKs.*overlap/);
-    expect(errorOf("AsKs, AKs")).toMatch(/overlap/);
-    expect(errorOf("22+, 55:0.5")).toMatch(/overlap/);
-    expect(errorOf("AK, AKo")).toMatch(/overlap/);
+  it("rejects overlapping entries, naming the first overlap", () => {
+    expect(errorOf("AKs, AQs+")).toEqual({ code: "overlap", entry: "AQs+", name: "AKs" });
+    expect(errorOf("AsKs, AKs")).toEqual({ code: "overlap", entry: "AKs", name: "AsKs" });
+    expect(errorOf("22+, 55:0.5")).toEqual({ code: "overlap", entry: "55:0.5", name: "55" });
+    expect(errorOf("AK, AKo")).toEqual({ code: "overlap", entry: "AKo", name: "AKo" });
   });
 });
 
@@ -187,9 +184,12 @@ describe("Hand class weights", () => {
   });
 });
 
-describe("range errors in French", () => {
-  it("explains the problem in French", () => {
-    expect(parseRange("AKx", "fr")).toEqual({ error: "Entrée invalide\u00a0: «\u00a0AKx\u00a0»", ok: false });
-    expect(parseRange("AA, AA", "fr")).toEqual({ error: "AA apparaît deux fois\u00a0: «\u00a0AA\u00a0» recoupe une entrée précédente", ok: false });
+describe("rangeCombos and rangeShare", () => {
+  it("count weighted Combos and their share of all 1326", () => {
+    expect(rangeCombos(parsed("AA, AKs:0.5"))).toBe(8);
+    expect(
+      rangeShare(parsed("22+, A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 72s+, 62s+, 52s+, 42s+, 32s, A2o+, K2o+, Q2o+, J2o+, T2o+, 92o+, 82o+, 72o+, 62o+, 52o+, 42o+, 32o")),
+    ).toBe(1);
+    expect(rangeShare(createRange())).toBe(0);
   });
 });

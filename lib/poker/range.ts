@@ -1,14 +1,23 @@
-import type { Locale } from "@/lib/i18n/locale";
-import { type Messages, messages } from "@/lib/i18n/messages";
 import { RANKS } from "./card";
 import { COMBO_COUNT, COMBO_HAND_CLASS, type ComboId, formatCombo, HAND_CLASS_COUNT, HAND_CLASS_NAMES, type HandClassId, handClassCombos, parseCombo } from "./combo";
 
 /** A Range as one weight in [0, 1] per Combo, indexed by ComboId. */
 export type Range = Float64Array;
 
-export type RangeParseResult = { ok: true; range: Range } | { ok: false; error: string };
+/** Why a range string does not parse, with the faulty entry; `name` is the Hand class or Combo an `overlap` repeats. */
+export type RangeProblem =
+  | { code: "repeated-card" | "invalid" | "suited-pair" | "pair-ends" | "first-rank" | "suffix" | "frequency"; entry: string }
+  | { code: "overlap"; entry: string; name: string };
+
+export type RangeParseResult = { ok: true; range: Range } | { ok: false; error: RangeProblem };
 
 export const createRange = (): Range => new Float64Array(COMBO_COUNT);
+
+/** Weighted Combos in a Range. */
+export const rangeCombos = (range: Range) => range.reduce((sum, weight) => sum + weight, 0);
+
+/** Share of all 1326 Combos in a Range, from 0 to 1. */
+export const rangeShare = (range: Range) => rangeCombos(range) / COMBO_COUNT;
 
 const isUniform = (range: Range, combos: readonly ComboId[]) => combos.every((combo) => range[combo] === range[combos[0]]);
 
@@ -58,10 +67,10 @@ function classIds({ high, low, suffix }: ClassToken): HandClassId[] {
   return suffix === "s" ? [suited] : suffix === "o" ? [offsuit] : [suited, offsuit];
 }
 
-/** Hand classes named by an entry without its frequency, or an error message. */
-function expandEntry(entry: string, t: Messages["rangeErrors"]): HandClassId[] | ComboId | string {
+/** Hand classes named by an entry without its frequency, or what is wrong with it. */
+function expandEntry(entry: string): HandClassId[] | ComboId | Exclude<RangeProblem["code"], "overlap"> {
   const text = entry.toUpperCase();
-  if (COMBO_RE.test(text)) return parseCombo(entry) ?? t.repeatsCard(entry);
+  if (COMBO_RE.test(text)) return parseCombo(entry) ?? "repeated-card";
 
   const single = SINGLE_RE.exec(text);
   const plus = PLUS_RE.exec(text);
@@ -73,8 +82,8 @@ function expandEntry(entry: string, t: Messages["rangeErrors"]): HandClassId[] |
       : span
         ? [classToken(span[1], span[2], span[3]), classToken(span[4], span[5], span[6])]
         : null;
-  if (!tokens) return t.invalid(entry);
-  if (tokens.some((token) => token.high === token.low && token.suffix !== "")) return t.suitedPair(entry);
+  if (!tokens) return "invalid";
+  if (tokens.some((token) => token.high === token.low && token.suffix !== "")) return "suited-pair";
   if (single) return classIds(tokens[0]);
 
   const classes: HandClassId[] = [];
@@ -88,23 +97,22 @@ function expandEntry(entry: string, t: Messages["rangeErrors"]): HandClassId[] |
 
   const [from, to] = tokens;
   const fromPair = from.high === from.low;
-  if (fromPair !== (to.high === to.low)) return t.pairEnds(entry);
+  if (fromPair !== (to.high === to.low)) return "pair-ends";
   if (fromPair) {
     for (let pair = Math.max(from.high, to.high); pair >= Math.min(from.high, to.high); pair--) classes.push(pair * 14);
     return classes;
   }
-  if (from.high !== to.high) return t.firstRank(entry);
-  if (from.suffix !== to.suffix) return t.suffix(entry);
+  if (from.high !== to.high) return "first-rank";
+  if (from.suffix !== to.suffix) return "suffix";
   for (let kicker = Math.max(from.low, to.low); kicker >= Math.min(from.low, to.low); kicker--) classes.push(...classIds({ high: from.high, low: kicker, suffix: from.suffix }));
   return classes;
 }
 
 /**
  * Parses a range string such as "22+, A2s+, KTs-K8s, AKo, AsKd, ATo:0.5".
- * Entries are comma-separated; each Combo may be named only once. Errors are in `locale`.
+ * Entries are comma-separated; each Combo may be named only once.
  */
-export function parseRange(text: string, locale: Locale = "en"): RangeParseResult {
-  const t = messages(locale).rangeErrors;
+export function parseRange(text: string): RangeParseResult {
   const range = createRange();
   const assigned = new Uint8Array(COMBO_COUNT);
   for (const rawEntry of text.split(",")) {
@@ -116,18 +124,18 @@ export function parseRange(text: string, locale: Locale = "en"): RangeParseResul
     if (colon >= 0) {
       const weightText = entry.slice(colon + 1).trim();
       weight = Number(weightText);
-      if (!WEIGHT_RE.test(weightText) || !(weight > 0 && weight <= 1)) return { error: t.frequency(entry), ok: false };
+      if (!WEIGHT_RE.test(weightText) || !(weight > 0 && weight <= 1)) return { error: { code: "frequency", entry }, ok: false };
     }
 
-    const expanded = expandEntry(body, t);
-    if (typeof expanded === "string") return { error: expanded, ok: false };
+    const expanded = expandEntry(body);
+    if (typeof expanded === "string") return { error: { code: expanded, entry: body }, ok: false };
     const combos = typeof expanded === "number" ? [expanded] : expanded.flatMap((cls) => handClassCombos(cls));
     const overlapping = combos.filter((combo) => assigned[combo]);
     if (overlapping.length > 0) {
       const cls = COMBO_HAND_CLASS[overlapping[0]];
       const wholeClass = handClassCombos(cls).every((combo) => assigned[combo] && combos.includes(combo));
       const name = wholeClass ? HAND_CLASS_NAMES[cls] : formatCombo(overlapping[0]);
-      return { error: t.twice(name, entry), ok: false };
+      return { error: { code: "overlap", entry, name }, ok: false };
     }
     for (const combo of combos) {
       assigned[combo] = 1;

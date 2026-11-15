@@ -1,15 +1,8 @@
 import type { LimperGroup, OpenerGroup } from "@/lib/charts/model";
-import { formatBb, formatList, formatNumber, formatPercent } from "@/lib/format";
+import { formatters } from "@/lib/format";
 import type { Messages } from "./en";
 
-const num = (value: number, maxDecimals = 0, minDecimals = 0) => formatNumber(value, "fr", maxDecimals, minDecimals);
-const pct = (share: number, decimals = 0) => formatPercent(share, "fr", decimals);
-/** Up to one decimal: "30%", "26.1%". */
-/** An exploitability share of the pot, "?" before the first check. */
-const potShare = (share: number | null) => (share === null ? "?" : pct(share, 2));
-const pct1 = (share: number) => formatPercent(share, "fr", 1, 0);
-const bb = (value: number) => formatBb(value, "fr");
-const list = (items: readonly string[]) => formatList(items, "fr");
+const { bb, list, num, pct, pct1, potShare } = formatters("fr");
 /** French singular covers 0 to under 2 ("1,5 combo"). */
 const s = (count: number, one: string, other: string) => (Math.abs(count) < 2 ? one : other);
 
@@ -22,6 +15,7 @@ const quote = (text: string) => `«${NBSP}${text}${NBSP}»`;
 const GROUP_PHRASES: Record<OpenerGroup, string> = { early: "en début de parole", late: "en fin de parole", middle: "en milieu de parole" };
 const LIMPERS: Record<LimperGroup, string> = { "1": "1 limper", "2+": "2+ limpers" };
 
+const megabytes = (bytes: number) => `${num(Math.max(1, Math.ceil(bytes / 2 ** 20)))}${NBSP}Mo`;
 const seconds = (ms: number) => {
   const decimals = ms < 10_000 ? 1 : 0;
   return `${num(ms / 1000, decimals, decimals)}${NBSP}s`;
@@ -43,6 +37,7 @@ export const fr: Messages = {
     solver: { title: "Solveur", lede: "La stratégie d’équilibre d’un spot heads-up, au flop, à la turn ou à la river." },
     glossary: { title: "Lexique", lede: "Les termes et abréviations de poker utilisés dans l’app, expliqués simplement." },
   },
+  notFound: { message: "Cette page n’existe pas." },
   common: {
     done: "OK",
     clear: "Effacer",
@@ -59,6 +54,7 @@ export const fr: Messages = {
     rangeString: "Range en texte",
     combos: (count: number) => `${num(count, 1)} ${s(count, "combo", "combos")}`,
     share: (share: number) => pct(share, 1),
+    level: (level: number, sb: number, bigBlind: number) => `${num(level)}${NBSP}: ${num(sb)}/${num(bigBlind)}`,
     ofHands: (share: number) => `${pct(share, 1)} des mains`,
   },
   cards: {
@@ -89,19 +85,20 @@ export const fr: Messages = {
     groups: { early: "Début", late: "Fin", middle: "Milieu" },
     limpers: LIMPERS,
     playerTypes: { loose: "Large", standard: "Standard", tight: "Serré" },
-    open: (position: string, tier: string) => `Open en ${position}, ${tier}`,
-    vsOpen: (position: string, group: OpenerGroup, tier: string) => `${position} face à un open ${GROUP_PHRASES[group]}, ${tier}`,
-    vsLimpers: (position: string, limpers: LimperGroup, tier: string) => `${position} face à ${LIMPERS[limpers]}, ${tier}`,
+    open: (position: string) => `Open en ${position}`,
+    vsOpen: (position: string, group: OpenerGroup) => `${position} face à un open ${GROUP_PHRASES[group]}`,
+    vsLimpers: (position: string, limpers: LimperGroup) => `${position} face à ${LIMPERS[limpers]}`,
+    withTier: (name: string, tier: string) => `${name}, ${tier}`,
     push: (position: string) => `Push en ${position}`,
     vsPush: (position: string, group: OpenerGroup) => `${position} face à un push ${GROUP_PHRASES[group]}`,
-    atDepth: (name: string, depth: number) => `${name}, ${depth}bb`,
-    span: (from: number, to: number) => (from === to ? `${from}bb` : `${from}–${to}bb`),
+    atDepth: (name: string, depth: number) => `${name}, ${num(depth)}bb`,
+    span: (from: number, to: number) => (from === to ? `${num(from)}bb` : `${num(from)}–${num(to)}bb`),
   },
   picker: { situation: "Situation", position: "Ta position", opener: "Ouvreur", pusher: "Pusher", limpers: "Limpers", stack: "Stack" },
   grid: {
     chart: (title: string) => `Chart ${title}`,
     frequency: (label: string, share: number) => `${label} ${pct(share)}`,
-    classSummary: (name: string, combos: number, frequencies: string) => `${name}, ${combos} combos${NBSP}: ${frequencies}`,
+    classSummary: (name: string, combos: number, frequencies: string) => `${name}, ${num(combos)} combos${NBSP}: ${frequencies}`,
   },
   ranges: {
     raisesTo: (size: number) => `Relance à ${bb(size)}.`,
@@ -113,14 +110,14 @@ export const fr: Messages = {
     never: (name: string, push: boolean) => `${name}${NBSP}: jamais de ${push ? "push" : "call"}`,
     upTo: (name: string, depth: string, push: boolean) => `${name}${NBSP}: ${push ? "push" : "call"} jusqu’à ${depth}bb`,
     playedAt: (spans: string, push: boolean) => `${push ? "push" : "call"} à ${spans}`,
-    neverPlayed: (deepest: number, push: boolean) => `jamais de ${push ? "push" : "call"} de 1 à ${deepest}bb`,
-    mixed: (depths: readonly { depth: number; share: number }[]) => ` Mixte${NBSP}: ${list(depths.map(({ depth, share }) => `${depth}bb ${pct(share)}`))}.`,
-    summary: (name: string, combos: number, played: string, mixed: string) => `${name}, ${combos} combos${NBSP}: ${played}.${mixed}`,
+    neverPlayed: (deepest: number, push: boolean) => `jamais de ${push ? "push" : "call"} de 1 à ${num(deepest)}bb`,
+    mixed: (depths: readonly { depth: number; share: number }[]) => ` Mixte${NBSP}: ${list(depths.map(({ depth, share }) => `${num(depth)}bb ${pct(share)}`))}.`,
+    summary: (name: string, combos: number, played: string, mixed: string) => `${name}, ${num(combos)} combos${NBSP}: ${played}.${mixed}`,
     foldedToYou: "Couché jusqu’à toi. ",
     averaged: (pushers: readonly string[]) => `Moyenne des push de ${list(pushers)}. `,
     facing: (pusher: string) => `Face à un push de ${pusher}. `,
     explain: (deepest: number, push: boolean) =>
-      `Chaque main indique le plus gros stack, en bb, où elle reste un ${push ? "push" : "call"}${NNBSP}; ${deepest}+ veut dire à toutes les profondeurs.`,
+      `Chaque main indique le plus gros stack, en bb, où elle reste un ${push ? "push" : "call"}${NNBSP}; ${num(deepest)}+ veut dire à toutes les profondeurs.`,
     gridLabel: (title: string) => `${title}${NBSP}: plus gros stack par main`,
     tapHand: "Touche une main pour voir à quelles profondeurs elle se joue.",
     model: { before: "Équilibre de Nash en chip-EV pour du 8-max sans ante, avec au plus un caller. Généré dans ", middle: " par ", after: "." },
@@ -154,19 +151,19 @@ export const fr: Messages = {
     notInRange: "hors range",
   },
   rangeErrors: {
-    repeatsCard: (entry: string) => `${quote(entry)} répète une carte`,
+    "repeated-card": (entry: string) => `${quote(entry)} répète une carte`,
     invalid: (entry: string) => `Entrée invalide${NBSP}: ${quote(entry)}`,
-    suitedPair: (entry: string) => `Une paire n’est ni suited ni offsuit${NBSP}: ${quote(entry)}`,
-    pairEnds: (entry: string) => `${quote(entry)}${NBSP}: les deux bornes doivent être des paires, ou aucune`,
-    firstRank: (entry: string) => `${quote(entry)}${NBSP}: les deux bornes doivent avoir la même première carte`,
+    "suited-pair": (entry: string) => `Une paire n’est ni suited ni offsuit${NBSP}: ${quote(entry)}`,
+    "pair-ends": (entry: string) => `${quote(entry)}${NBSP}: les deux bornes doivent être des paires, ou aucune`,
+    "first-rank": (entry: string) => `${quote(entry)}${NBSP}: les deux bornes doivent avoir la même première carte`,
     suffix: (entry: string) => `${quote(entry)}${NBSP}: les deux bornes doivent être toutes deux suited, toutes deux offsuit, ou sans marque`,
     frequency: (entry: string) => `Fréquence invalide dans ${quote(entry)}${NBSP}: indique un nombre supérieur à 0 et au plus égal à 1`,
-    twice: (name: string, entry: string) => `${name} apparaît deux fois${NBSP}: ${quote(entry)} recoupe une entrée précédente`,
+    overlap: (name: string, entry: string) => `${name} apparaît deux fois${NBSP}: ${quote(entry)} recoupe une entrée précédente`,
   },
   table: {
     position: "Ta position",
     you: (position: string) => `Toi${NBSP}: ${position}`,
-    handed: (players: number) => `Table à ${players}`,
+    handed: (players: number) => `Table à ${num(players)}`,
     tap: "Touche ta position",
   },
   advisor: {
@@ -196,19 +193,18 @@ export const fr: Messages = {
     yourChips: "Tes jetons",
     chips: "jetons",
     blindLevel: "Niveau de blindes",
-    level: (level: number, sb: number, bigBlind: number) => `${level}${NBSP}: ${num(sb)}/${num(bigBlind)}`,
     yourStack: "Ton stack",
     table: "Table",
     players: "Joueurs",
     opened: "Open",
     pushed: "Push",
     noStack: "Entre ton stack.",
-    noPosition: (position: string, players: number) => `Il n’y a pas de ${position} à une table à ${players}.`,
+    noPosition: (position: string, players: number) => `Il n’y a pas de ${position} à une table à ${num(players)}.`,
     nobodyBefore: (position: string) => `En ${position}, personne ne parle avant toi.`,
     fewerThanTwo: (position: string) => `En ${position}, moins de deux joueurs parlent avant toi.`,
     openerFirst: "L’ouvreur doit parler avant toi.",
     pusherFirst: "Le pusher doit parler avant toi.",
-    vsPushCapped: (deepest: number) => `Les charts face à un push s’arrêtent à ${deepest}bb${NBSP}: voici celle de ${deepest}bb.`,
+    vsPushCapped: (deepest: number) => `Les charts face à un push s’arrêtent à ${num(deepest)}bb${NBSP}: voici celle de ${num(deepest)}bb.`,
     belowPushFold: `Sous 15bb, aucune chart push/fold ne couvre cette situation${NBSP}: voici la chart 15–20bb.`,
     walkReason: `Couché jusqu’à toi en BB${NBSP}: tu remportes les blindes.`,
     allIn: "tapis",
@@ -253,13 +249,13 @@ export const fr: Messages = {
     foldedBefore: (position: string) => `${position} s’est couché avant le flop.`,
     neverLine: (type: string, position: string) => `Un joueur ${type.toLowerCase()} ne joue jamais ce coup en ${position}.`,
     lines: {
-      calledThreeBet: "a callé ton 3-bet",
+      "called-3-bet": "a callé ton 3-bet",
       opened: "a ouvert",
-      calledOpen: "a callé l’open",
+      "called-open": "a callé l’open",
       checked: "a checké",
-      calledYourOpen: "a callé ton open",
+      "called-your-open": "a callé ton open",
       limped: "a limpé",
-      calledRaise: "a callé ta relance",
+      "called-raise": "a callé ta relance",
       overlimped: "a overlimpé",
     },
     threeBetNote: (position: string) => `Aucune chart ne couvre le call d’un 3-bet${NBSP}: voici la range d’open de ${position}.`,
@@ -269,41 +265,41 @@ export const fr: Messages = {
   },
   equity: {
     kinds: { hand: "Main", random: "Hasard", range: "Range" },
-    player: (index: number) => `Joueur ${index + 1}`,
+    player: (index: number) => `Joueur ${num(index + 1)}`,
     players: "Joueurs",
     anyTwo: "Deux cartes au hasard",
-    editHand: (index: number) => `Modifier la main du joueur ${index + 1}${NBSP}: `,
+    editHand: (index: number) => `Modifier la main du joueur ${num(index + 1)}${NBSP}: `,
     pickCards: "Choisir les cartes",
-    editRange: (index: number) => `Modifier la range du joueur ${index + 1}${NBSP}: `,
-    removeSr: (index: number) => ` le joueur ${index + 1}`,
+    editRange: (index: number) => `Modifier la range du joueur ${num(index + 1)}${NBSP}: `,
+    removeSr: (index: number) => ` le joueur ${num(index + 1)}`,
     remove: "Retirer",
     equitySr: (equity: number, win: number, tie: number) => `Équité ${pct(equity, 1)}, gagne ${pct(win, 1)}, partage ${pct(tie, 1)}`,
     percent: (share: number) => pct(share, 1),
     win: (share: number) => `Gagne ${pct(share, 1)}`,
     tie: (share: number) => `Partage ${pct(share, 1)}`,
-    holds: (index: number) => `Jeu du joueur ${index + 1}`,
+    holds: (index: number) => `Jeu du joueur ${num(index + 1)}`,
     addPlayer: "Ajouter un joueur",
     dead: "Cartes mortes",
     deadSr: " les cartes mortes",
     editDead: "Modifier les cartes mortes",
     addDead: "Ajouter des cartes mortes",
-    handSheet: (index: number) => `Main du joueur ${index + 1}`,
-    rangeSheet: (index: number) => `Range du joueur ${index + 1}`,
+    handSheet: (index: number) => `Main du joueur ${num(index + 1)}`,
+    rangeSheet: (index: number) => `Range du joueur ${num(index + 1)}`,
     counting: (progress: number) => `Calcul de tous les tirages… ${pct(progress)}`,
     sampling: (samples: number) => `Monte-Carlo, ${num(samples)} simulations pour l’instant…`,
     exact: (runouts: number) => `Exact sur ${num(runouts)} tirages`,
     monteCarlo: (samples: number) => `Monte-Carlo sur ${num(samples)} simulations`,
-    pickTwo: (index: number) => `Choisis deux cartes pour le joueur ${index + 1}.`,
-    rangeError: (index: number, error: string) => `Range du joueur ${index + 1}${NBSP}: ${error}`,
-    paintFor: (index: number) => `Dessine une range pour le joueur ${index + 1}.`,
+    pickTwo: (index: number) => `Choisis deux cartes pour le joueur ${num(index + 1)}.`,
+    rangeError: (index: number, error: string) => `Range du joueur ${num(index + 1)}${NBSP}: ${error}`,
+    paintFor: (index: number) => `Dessine une range pour le joueur ${num(index + 1)}.`,
     tooFew: "Ajoute au moins 2 joueurs.",
-    tooMany: (max: number) => `${max} joueurs au maximum.`,
+    tooMany: (max: number) => `${num(max)} joueurs au maximum.`,
     boardSize: "Le board a au plus 5 cartes.",
-    needsTwo: (index: number) => `Le joueur ${index + 1} doit avoir deux cartes.`,
+    needsTwo: (index: number) => `Le joueur ${num(index + 1)} doit avoir deux cartes.`,
     unknownCard: "Carte inconnue.",
     usedTwice: (card: string) => `${card} est utilisée deux fois.`,
-    rangeEmpty: (index: number) => `La range du joueur ${index + 1} est vide.`,
-    rangeBlocked: (index: number) => `La range du joueur ${index + 1} n’a plus aucune main avec les cartes déjà utilisées.`,
+    rangeEmpty: (index: number) => `La range du joueur ${num(index + 1)} est vide.`,
+    rangeBlocked: (index: number) => `La range du joueur ${num(index + 1)} n’a plus aucune main avec les cartes déjà utilisées.`,
     noBoard: "Il ne reste pas assez de cartes pour distribuer le board.",
     cannotDeal: `Ces ranges ne peuvent pas être distribuées ensemble${NBSP}: elles ont besoin des mêmes cartes.`,
     overlapTooMuch: "Ces ranges se recoupent trop pour être échantillonnées.",
@@ -336,21 +332,23 @@ export const fr: Messages = {
     times: (multiple: number) => `${num(multiple, 1)}×`,
     solveSr: "Résolution",
     sizing: "Calcul de la taille de l’arbre…",
-    estimate: (decisions: number, memory: string, oop: number, ip: number) => `${num(decisions)} décisions, environ ${memory} de mémoire, ${oop} contre ${ip} combos.`,
+    estimate: (decisions: number, memoryBytes: number, oop: number, ip: number) =>
+      `${num(decisions)} décisions, environ ${megabytes(memoryBytes)} de mémoire, ${num(oop)} contre ${num(ip)} combos.`,
     solve: "Résoudre",
     solveAgain: "Résoudre à nouveau",
     continue: "Continuer",
     stale: "Le réglage a changé depuis ce calcul. Résous à nouveau pour mettre la stratégie à jour.",
     building: "Construction de l’arbre…",
     starting: "Démarrage du Solveur…",
-    measuring: (iteration: number) => `Itération ${iteration}, mesure de l’exploitabilité…`,
+    measuring: (iteration: number) => `Itération ${num(iteration)}, mesure de l’exploitabilité…`,
     running: (iteration: number, share: number | null, ms: number) =>
-      `Itération ${iteration}${NBSP}: exploitabilité de ${potShare(share)} du pot (objectif ${pct(0.005, 1)}), ${seconds(ms)}.`,
+      `Itération ${num(iteration)}${NBSP}: exploitabilité de ${potShare(share)} du pot (objectif ${pct(0.005, 1)}), ${seconds(ms)}.`,
     converged: (share: number | null, iterations: number, ms: number) =>
-      `Résolu${NBSP}: exploitabilité de ${potShare(share)} du pot après ${iterations} itérations en ${seconds(ms)}.`,
+      `Résolu${NBSP}: exploitabilité de ${potShare(share)} du pot après ${num(iterations)} itérations en ${seconds(ms)}.`,
     stopped: (share: number | null, iterations: number, ms: number) =>
-      `Arrêté à ${potShare(share)} du pot après ${iterations} itérations en ${seconds(ms)}. La stratégie obtenue est ci-dessous.`,
-    maxIterations: (iterations: number, share: number | null) => `${iterations} itérations atteintes à ${potShare(share)} du pot, au-dessus de l’objectif de ${pct(0.005, 1)}.`,
+      `Arrêté à ${potShare(share)} du pot après ${num(iterations)} itérations en ${seconds(ms)}. La stratégie obtenue est ci-dessous.`,
+    maxIterations: (iterations: number, share: number | null) =>
+      `${num(iterations)} itérations atteintes à ${potShare(share)} du pot, au-dessus de l’objectif de ${pct(0.005, 1)}.`,
     unknown: "?",
     action: "Action",
     openCall: "Open, call",
@@ -359,10 +357,9 @@ export const fr: Messages = {
     caller: "Caller",
     depthField: "Stack effectif avant la main, en bb",
     levelField: "Niveau de blindes, pour les blindes dans le pot",
-    levelOption: (level: number, sb: number, bigBlind: number) => `${level}${NBSP}: ${num(sb)}/${num(bigBlind)}`,
     enterDepth: "Entre la profondeur de stack en bb",
     lineSummary: (pot: number, stack: number, tier: string) => `Pot ${bb(pot)}, ${bb(stack)} derrière. Ranges tirées de tes charts ${tier}.`,
-    lineNote: (min: number) => `OK remplace les deux ranges, le pot et le stack. Sous ${min}bb, ce sont les charts push/fold.`,
+    lineNote: (min: number) => `OK remplace les deux ranges, le pot et le stack. Sous ${num(min)}bb, ce sont les charts push/fold.`,
     amountsTitle: "Pot et stack",
     potField: "Pot au début de la street, en bb",
     stackField: "Stack effectif restant, en bb",
@@ -370,8 +367,8 @@ export const fr: Messages = {
     useLine: "Reprendre les montants de la ligne préflop",
     limpLine: (depth: number) => `SB limpe, BB checke, ${bb(depth)}`,
     openLine: (opener: string, size: number | null, caller: string, depth: number) => `${opener} ouvre${size === null ? "" : ` à ${bb(size)}`}, ${caller} calle, ${bb(depth)}`,
-    level: (level: number, sb: number, bigBlind: number) => `niveau ${level} (${num(sb)}/${num(bigBlind)})`,
-    belowMin: (min: number) => `Sous ${min}bb, ce sont les charts push/fold${NBSP}: choisis un stack plus profond`,
+    level: (level: number, sb: number, bigBlind: number) => `niveau ${num(level)} (${num(sb)}/${num(bigBlind)})`,
+    belowMin: (min: number) => `Sous ${num(min)}bb, ce sont les charts push/fold${NBSP}: choisis un stack plus profond`,
     callerAfter: "Le caller doit parler après l’ouvreur",
     openerBeforeBb: "L’ouvreur doit être une position avant la BB",
     pickBoard: "Choisis 3, 4 ou 5 cartes de board.",
@@ -387,11 +384,20 @@ export const fr: Messages = {
     raiseCap: "Le plafond de relances doit être un nombre entier",
     flopOneBet: "Au flop, une seule taille de mise plus le tapis",
     emptyRange: (player: string) => `La range de ${player} est vide sur ce board`,
-    megabytes: (bytes: number) => `${num(Math.max(1, Math.ceil(bytes / 2 ** 20)))}${NBSP}Mo`,
-    overBudget: (memory: string, budget: string, fixes: { betSize: boolean; laterStreet: boolean }) => {
-      const steps = ["Resserre les ranges", ...(fixes.betSize ? ["retire une taille de mise"] : []), ...(fixes.laterStreet ? ["pars d’une street plus tardive"] : [])];
-      const advice = steps.length > 1 ? `${steps.slice(0, -1).join(", ")} ou ${steps.at(-1)}` : steps[0];
-      return `Ce spot demande environ ${memory}, au-delà du budget de ${budget}. ${advice}.`;
+    errors: {
+      overBudget: (memoryBytes: number, budgetBytes: number, fixes: { betSize: boolean; laterStreet: boolean }) => {
+        const steps = ["Resserre les ranges", ...(fixes.betSize ? ["retire une taille de mise"] : []), ...(fixes.laterStreet ? ["pars d’une street plus tardive"] : [])];
+        const advice = steps.length > 1 ? `${steps.slice(0, -1).join(", ")} ou ${steps.at(-1)}` : steps[0];
+        return `Ce spot demande environ ${megabytes(memoryBytes)}, au-delà du budget de ${megabytes(budgetBytes)}. ${advice}.`;
+      },
+      badPath: (step: number) => `L’arbre n’a pas ce chemin (étape ${num(step)}).`,
+      "blocked-ranges": "Les deux ranges se bloquent complètement sur ce board.",
+      "no-solve": "Aucun calcul à reprendre.",
+      "solve-gone": "Ce calcul n’est plus disponible.",
+      "not-started": "Lance un calcul avant de lire son arbre.",
+      "still-running": "Le calcul est encore en cours.",
+      "no-worker": "Le Solveur ne tourne pas.",
+      internal: (message: string) => `Erreur du Solveur${NBSP}: ${message}`,
     },
   },
   strategy: {
@@ -444,7 +450,7 @@ export const fr: Messages = {
     find: "Chercher un terme ou une abréviation",
     filterSr: " le filtre",
     noMatch: (query: string) => `Aucun terme ne correspond à ${quote(query)}.`,
-    count: (count: number) => `${count} ${s(count, "terme", "termes")}`,
+    count: (count: number) => `${num(count)} ${s(count, "terme", "termes")}`,
     example: (text: string) => `Exemple${NBSP}: ${text}`,
     topics: {
       actions: "Actions",

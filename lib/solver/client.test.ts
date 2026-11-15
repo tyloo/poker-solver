@@ -43,7 +43,7 @@ describe("solver client", () => {
     const [root, facing] = await Promise.all([client.query([]), client.query([1])]);
     expect(root.player).toBe(0);
     expect(facing.actions.map((action) => action.kind)).toEqual(["fold", "call"]);
-    await expect(client.query([9])).rejects.toThrow(/path/);
+    await expect(client.query([9])).rejects.toMatchObject({ error: { code: "bad-path", step: 1 } });
   });
 
   it("stops, resumes and reports a superseded solve", async () => {
@@ -73,8 +73,8 @@ describe("solver client", () => {
   it("rejects an invalid Spot and terminates the worker on dispose", async () => {
     const port = inProcessPort();
     const client = connectSolver(port);
-    await expect(client.solve({ ...kuhn(), pot: -1 })).rejects.toThrow(/pot/);
-    await expect(client.query([])).rejects.toThrow(/solve/);
+    await expect(client.solve({ ...kuhn(), pot: -1 })).rejects.toMatchObject({ error: { code: "spot", problem: { code: "pot" } } });
+    await expect(client.query([])).rejects.toMatchObject({ error: { code: "solve-gone" } });
     client.dispose();
     expect(port.terminated).toBe(true);
   });

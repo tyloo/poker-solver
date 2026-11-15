@@ -1,10 +1,9 @@
 import { BLIND_STRUCTURE } from "@/content/blind-structure";
-import type { Locale } from "@/lib/i18n/locale";
-import { messages } from "@/lib/i18n/messages";
 import { blindLevel } from "@/lib/poker/blinds";
-import { formatRange, parseRange, type Range } from "@/lib/poker/range";
-import { linePlayers, lineSpot } from "./preflop-line";
-import { PLAYER_NAMES, type Spot, validateSpot } from "./spot";
+import { formatRange, parseRange, type Range, type RangeProblem } from "@/lib/poker/range";
+import type { SpotProblem } from "./errors";
+import { type LineError, linePlayers, lineSpot } from "./preflop-line";
+import { PLAYER_NAMES, type Player, type Spot, validateSpot } from "./spot";
 import type { SpotSetup } from "./spot-url";
 
 /** The Solver works in chips: 1bb = 100, so bets round to 0.01bb. */
@@ -26,6 +25,14 @@ export function betSizesFor(bets: readonly number[] | null, boardCards: number):
   return bets && bets.length > 0 ? [...bets] : DEFAULT_BETS;
 }
 
+/** Why the setup has no Spot yet; `player` is 0 (OOP) or 1 (IP). */
+export type SetupProblem =
+  | { code: "line"; error: LineError }
+  | { code: "pick-board" | "set-amounts" }
+  | { code: "range"; player: Player; error: RangeProblem }
+  | { code: "paint"; player: Player }
+  | { code: "spot"; problem: SpotProblem };
+
 export type ResolvedSetup = {
   /** [OOP, IP] names: Positions from the Preflop line, else "OOP" and "IP". */
   players: [string, string];
@@ -39,16 +46,15 @@ export type ResolvedSetup = {
   bets: number[];
   raises: number[];
   spot: Spot | null;
-  /** Why there is no Spot yet, in a sentence. */
-  reason: string | null;
+  /** Why there is no Spot yet. */
+  reason: SetupProblem | null;
   /** Identifies the Spot: equal keys mean the same solve. */
   key: string;
 };
 
 /** Turns the URL setup into a Spot, filling what the URL leaves out from the Preflop line. */
-export function resolveSetup(setup: SpotSetup, locale: Locale): ResolvedSetup {
-  const t = messages(locale).solver;
-  const line = setup.line ? lineSpot(setup.line, setup.depth, blindLevel(BLIND_STRUCTURE, setup.level), locale) : null;
+export function resolveSetup(setup: SpotSetup): ResolvedSetup {
+  const line = setup.line ? lineSpot(setup.line, setup.depth, blindLevel(BLIND_STRUCTURE, setup.level)) : null;
   const fromLine = line?.ok ? line : null;
   const players: [string, string] = setup.line ? linePlayers(setup.line) : [PLAYER_NAMES[0], PLAYER_NAMES[1]];
   const street = STREETS[setup.board.length] ?? null;
@@ -59,12 +65,12 @@ export function resolveSetup(setup: SpotSetup, locale: Locale): ResolvedSetup {
   const raises = street === "flop" ? [] : [setup.raise];
   const key = JSON.stringify([setup.board, pot, stack, rangeTexts, bets, raises]);
 
-  const result = (spot: Spot | null, reason: string | null): ResolvedSetup => ({ bets, key, players, pot, rangeTexts, raises, reason, spot, stack, street });
+  const result = (spot: Spot | null, reason: SetupProblem | null): ResolvedSetup => ({ bets, key, players, pot, rangeTexts, raises, reason, spot, stack, street });
 
   const lineNeeded = setup.pot === null || setup.stack === null || setup.ranges.some((text) => text === null);
-  if (line && !line.ok && lineNeeded) return result(null, `${line.error}.`);
-  if (!street) return result(null, t.pickBoard);
-  if (Number.isNaN(pot) || Number.isNaN(stack)) return result(null, t.setAmounts);
+  if (line && !line.ok && lineNeeded) return result(null, { code: "line", error: line.error });
+  if (!street) return result(null, { code: "pick-board" });
+  if (Number.isNaN(pot) || Number.isNaN(stack)) return result(null, { code: "set-amounts" });
 
   const ranges: Range[] = [];
   for (const player of [0, 1] as const) {
@@ -73,9 +79,9 @@ export function resolveSetup(setup: SpotSetup, locale: Locale): ResolvedSetup {
       ranges.push(fromLine.ranges[player]);
       continue;
     }
-    const parsed = parseRange(rangeTexts[player], locale);
-    if (!parsed.ok) return result(null, t.rangeError(players[player], parsed.error));
-    if (!parsed.range.some((weight) => weight > 0)) return result(null, t.paintFor(players[player]));
+    const parsed = parseRange(rangeTexts[player]);
+    if (!parsed.ok) return result(null, { code: "range", error: parsed.error, player });
+    if (!parsed.range.some((weight) => weight > 0)) return result(null, { code: "paint", player });
     ranges.push(parsed.range);
   }
 
@@ -87,7 +93,7 @@ export function resolveSetup(setup: SpotSetup, locale: Locale): ResolvedSetup {
     raiseSizes: raises,
     ranges: [ranges[0], ranges[1]],
   };
-  const error = validateSpot(spot, locale, players);
-  if (error) return result(null, `${error}.`);
+  const problem = validateSpot(spot);
+  if (problem) return result(null, { code: "spot", problem });
   return result(spot, null);
 }

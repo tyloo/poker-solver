@@ -1,19 +1,19 @@
+import type { OpponentLine } from "@/lib/advisor/postflop";
 import type { ActionName, LimperGroup, OpenerGroup, Situation } from "@/lib/charts/model";
 import type { PlayerType } from "@/lib/charts/player-types";
 import type { PushFoldSituation } from "@/lib/charts/push-fold";
-import { formatBb, formatList, formatNumber, formatPercent } from "@/lib/format";
+import { formatters } from "@/lib/format";
 import type { GlossaryTopic } from "@/lib/glossary/glossary";
 import type { Rank, Suit } from "@/lib/poker/card";
+import type { Tool } from "@/lib/tools";
 
-const num = (value: number, maxDecimals = 0, minDecimals = 0) => formatNumber(value, "en", maxDecimals, minDecimals);
-const pct = (share: number, decimals = 0) => formatPercent(share, "en", decimals);
-/** Up to one decimal: "30%", "26.1%". */
-/** An exploitability share of the pot, "?" before the first check. */
-const potShare = (share: number | null) => (share === null ? "?" : pct(share, 2));
-const pct1 = (share: number) => formatPercent(share, "en", 1, 0);
-const bb = (value: number) => formatBb(value, "en");
-const list = (items: readonly string[]) => formatList(items, "en");
+const { bb, list, num, pct, pct1, potShare } = formatters("en");
 const s = (count: number, one: string, other: string) => (count === 1 ? one : other);
+const megabytes = (bytes: number) => `${num(Math.max(1, Math.ceil(bytes / 2 ** 20)))} MB`;
+const seconds = (ms: number) => {
+  const decimals = ms < 10_000 ? 1 : 0;
+  return `${num(ms / 1000, decimals, decimals)} s`;
+};
 
 /** English UI text. `Messages` is its shape; the French dictionary must match it key for key. */
 export const en = {
@@ -23,14 +23,15 @@ export const en = {
     description: "Preflop charts, equity, a postflop solver and quick advice for live 8-max tournaments.",
   },
   language: { code: "EN", flag: "🇬🇧", switchTo: "Switch to English" },
-  tabs: { label: "Tools", advisor: "Advisor", equity: "Equity", ranges: "Ranges", solver: "Solver", glossary: "Glossary" },
+  tabs: { label: "Tools", advisor: "Advisor", equity: "Equity", ranges: "Ranges", solver: "Solver", glossary: "Glossary" } satisfies Record<Tool | "label", string>,
   tools: {
     advisor: { title: "Advisor", lede: "Pick your hand, position and stack, and get the play from your charts." },
     equity: { title: "Equity", lede: "How often each hand or range wins at showdown, for up to eight players." },
     ranges: { title: "Ranges", lede: "Your preflop charts by situation, position and stack depth." },
     solver: { title: "Solver", lede: "The game-theory strategy for a heads-up flop, turn or river spot." },
     glossary: { title: "Glossary", lede: "The poker terms and abbreviations the app uses, in plain English." },
-  },
+  } satisfies Record<Tool, { title: string; lede: string }>,
+  notFound: { message: "This page does not exist." },
   common: {
     done: "Done",
     clear: "Clear",
@@ -47,6 +48,8 @@ export const en = {
     rangeString: "Range string",
     combos: (count: number) => `${num(count, 1)} ${s(count, "combo", "combos")}`,
     share: (share: number) => pct(share, 1),
+    /** A Blind level option: "3: 100/200". */
+    level: (level: number, sb: number, bigBlind: number) => `${num(level)}: ${num(sb)}/${num(bigBlind)}`,
     ofHands: (share: number) => `${pct(share, 1)} of hands`,
   },
   cards: {
@@ -94,20 +97,22 @@ export const en = {
     groups: { early: "Early", late: "Late", middle: "Middle" } satisfies Record<OpenerGroup, string>,
     limpers: { "1": "1 limper", "2+": "2+ limpers" } satisfies Record<LimperGroup, string>,
     playerTypes: { loose: "Loose", standard: "Standard", tight: "Tight" } satisfies Record<PlayerType, string>,
-    open: (position: string, tier: string) => `${position} open, ${tier}`,
-    vsOpen: (position: string, group: OpenerGroup, tier: string) => `${position} vs ${group} open, ${tier}`,
-    vsLimpers: (position: string, limpers: LimperGroup, tier: string) => `${position} vs ${limpers === "1" ? "1 limper" : "2+ limpers"}, ${tier}`,
+    open: (position: string) => `${position} open`,
+    vsOpen: (position: string, group: OpenerGroup) => `${position} vs ${group} open`,
+    vsLimpers: (position: string, limpers: LimperGroup) => `${position} vs ${limpers === "1" ? "1 limper" : "2+ limpers"}`,
+    /** A Situation at a Stack tier: "CO open, 40bb+". */
+    withTier: (name: string, tier: string) => `${name}, ${tier}`,
     push: (position: string) => `${position} push`,
     vsPush: (position: string, group: OpenerGroup) => `${position} vs ${group} push`,
-    atDepth: (name: string, depth: number) => `${name}, ${depth}bb`,
+    atDepth: (name: string, depth: number) => `${name}, ${num(depth)}bb`,
     /** Depth spans of the push/fold view: "1–11bb", "15bb". */
-    span: (from: number, to: number) => (from === to ? `${from}bb` : `${from}–${to}bb`),
+    span: (from: number, to: number) => (from === to ? `${num(from)}bb` : `${num(from)}–${num(to)}bb`),
   },
   picker: { situation: "Situation", position: "Your position", opener: "Opener", pusher: "Pusher", limpers: "Limpers", stack: "Stack" },
   grid: {
     chart: (title: string) => `${title} chart`,
     frequency: (label: string, share: number) => `${label} ${pct(share)}`,
-    classSummary: (name: string, combos: number, frequencies: string) => `${name}, ${combos} combos: ${frequencies}`,
+    classSummary: (name: string, combos: number, frequencies: string) => `${name}, ${num(combos)} combos: ${frequencies}`,
   },
   ranges: {
     raisesTo: (size: number) => `Raises to ${bb(size)}.`,
@@ -119,13 +124,13 @@ export const en = {
     never: (name: string, push: boolean) => `${name}: never ${push ? "pushes" : "calls"}`,
     upTo: (name: string, depth: string, push: boolean) => `${name}: ${push ? "pushes" : "calls"} up to ${depth}bb`,
     playedAt: (spans: string, push: boolean) => `${push ? "pushes" : "calls"} at ${spans}`,
-    neverPlayed: (deepest: number, push: boolean) => `never ${push ? "pushes" : "calls"} from 1 to ${deepest}bb`,
-    mixed: (depths: readonly { depth: number; share: number }[]) => ` Mixed at ${list(depths.map(({ depth, share }) => `${depth}bb ${pct(share)}`))}.`,
-    summary: (name: string, combos: number, played: string, mixed: string) => `${name}, ${combos} combos: ${played}.${mixed}`,
+    neverPlayed: (deepest: number, push: boolean) => `never ${push ? "pushes" : "calls"} from 1 to ${num(deepest)}bb`,
+    mixed: (depths: readonly { depth: number; share: number }[]) => ` Mixed at ${list(depths.map(({ depth, share }) => `${num(depth)}bb ${pct(share)}`))}.`,
+    summary: (name: string, combos: number, played: string, mixed: string) => `${name}, ${num(combos)} combos: ${played}.${mixed}`,
     foldedToYou: "Folded to you. ",
     averaged: (pushers: readonly string[]) => `Averaged over ${list(pushers)} pushing. `,
     facing: (pusher: string) => `Facing a ${pusher} push. `,
-    explain: (deepest: number, push: boolean) => `Each hand shows the largest stack, in bb, at which it still ${push ? "pushes" : "calls"}; ${deepest}+ means at every depth.`,
+    explain: (deepest: number, push: boolean) => `Each hand shows the largest stack, in bb, at which it still ${push ? "pushes" : "calls"}; ${num(deepest)}+ means at every depth.`,
     gridLabel: (title: string) => `${title}: largest stack per hand`,
     tapHand: "Tap a hand for the depths it plays at.",
     model: { before: "Chip-EV Nash equilibrium for 8-max with no antes, assuming at most one caller. Generated into ", middle: " by ", after: "." },
@@ -159,19 +164,19 @@ export const en = {
     notInRange: "not in range",
   },
   rangeErrors: {
-    repeatsCard: (entry: string) => `"${entry}" repeats a card`,
+    "repeated-card": (entry: string) => `"${entry}" repeats a card`,
     invalid: (entry: string) => `Invalid entry "${entry}"`,
-    suitedPair: (entry: string) => `Pairs cannot be suited or offsuit: "${entry}"`,
-    pairEnds: (entry: string) => `"${entry}": both ends must be pairs, or neither`,
-    firstRank: (entry: string) => `"${entry}": both ends must share the first rank`,
+    "suited-pair": (entry: string) => `Pairs cannot be suited or offsuit: "${entry}"`,
+    "pair-ends": (entry: string) => `"${entry}": both ends must be pairs, or neither`,
+    "first-rank": (entry: string) => `"${entry}": both ends must share the first rank`,
     suffix: (entry: string) => `"${entry}": both ends must be suited, both offsuit, or both unmarked`,
     frequency: (entry: string) => `Invalid frequency in "${entry}": use a number above 0 and at most 1`,
-    twice: (name: string, entry: string) => `${name} appears twice: "${entry}" overlaps an earlier entry`,
+    overlap: (name: string, entry: string) => `${name} appears twice: "${entry}" overlaps an earlier entry`,
   },
   table: {
     position: "Your position",
     you: (position: string) => `You: ${position}`,
-    handed: (players: number) => `${players}-handed`,
+    handed: (players: number) => `${num(players)}-handed`,
     tap: "Tap your position",
   },
   advisor: {
@@ -201,7 +206,6 @@ export const en = {
     yourChips: "Your chips",
     chips: "chips",
     blindLevel: "Blind level",
-    level: (level: number, sb: number, bigBlind: number) => `${level}: ${num(sb)}/${num(bigBlind)}`,
     yourStack: "Your stack",
     table: "Table",
     players: "Players",
@@ -209,12 +213,12 @@ export const en = {
     pushed: "Pushed",
     // Preflop advice (lib/advisor/preflop.ts).
     noStack: "Enter your stack.",
-    noPosition: (position: string, players: number) => `There is no ${position} at a ${players}-handed table.`,
+    noPosition: (position: string, players: number) => `There is no ${position} at a ${num(players)}-handed table.`,
     nobodyBefore: (position: string) => `Nobody acts before ${position}.`,
     fewerThanTwo: (position: string) => `Fewer than two players act before ${position}.`,
     openerFirst: "The opener must act before you.",
     pusherFirst: "The pusher must act before you.",
-    vsPushCapped: (deepest: number) => `Vs push charts stop at ${deepest}bb, so this is the ${deepest}bb chart.`,
+    vsPushCapped: (deepest: number) => `Vs push charts stop at ${num(deepest)}bb, so this is the ${num(deepest)}bb chart.`,
     belowPushFold: "Below 15bb no Push/fold chart covers this Situation, so this is the 15–20bb Chart.",
     walkReason: "Folded to you in the BB: you win the blinds.",
     allIn: "all-in",
@@ -260,57 +264,57 @@ export const en = {
     foldedBefore: (position: string) => `${position} folded before the flop.`,
     neverLine: (type: string, position: string) => `${type} players never take that line from ${position}.`,
     lines: {
-      calledThreeBet: "called your 3-bet",
+      "called-3-bet": "called your 3-bet",
       opened: "opened",
-      calledOpen: "called the open",
+      "called-open": "called the open",
       checked: "checked",
-      calledYourOpen: "called your open",
+      "called-your-open": "called your open",
       limped: "limped",
-      calledRaise: "called your raise",
+      "called-raise": "called your raise",
       overlimped: "overlimped",
-    },
+    } satisfies Record<OpponentLine, string>,
     threeBetNote: (position: string) => `No Chart covers calling a 3-bet, so this is ${position}'s open Range.`,
     openLimpNote: (type: string, position: string) => `${type} players never open-limp from ${position} in the repo data, so this is their overlimp Range.`,
     isoRaiseNote: "No Chart covers calling an iso-raise, so this is the Vs open call Range.",
   },
   equity: {
     kinds: { hand: "Hand", random: "Random", range: "Range" },
-    player: (index: number) => `Player ${index + 1}`,
+    player: (index: number) => `Player ${num(index + 1)}`,
     players: "Players",
     anyTwo: "Any two cards",
-    editHand: (index: number) => `Edit Player ${index + 1}'s hand: `,
+    editHand: (index: number) => `Edit Player ${num(index + 1)}'s hand: `,
     pickCards: "Pick cards",
-    editRange: (index: number) => `Edit Player ${index + 1}'s range: `,
-    removeSr: (index: number) => ` Player ${index + 1}`,
+    editRange: (index: number) => `Edit Player ${num(index + 1)}'s range: `,
+    removeSr: (index: number) => ` Player ${num(index + 1)}`,
     remove: "Remove",
     equitySr: (equity: number, win: number, tie: number) => `Equity ${pct(equity, 1)}, win ${pct(win, 1)}, tie ${pct(tie, 1)}`,
     percent: (share: number) => pct(share, 1),
     win: (share: number) => `Win ${pct(share, 1)}`,
     tie: (share: number) => `Tie ${pct(share, 1)}`,
-    holds: (index: number) => `Player ${index + 1} holds`,
+    holds: (index: number) => `Player ${num(index + 1)} holds`,
     addPlayer: "Add player",
     dead: "Dead cards",
     deadSr: " dead cards",
     editDead: "Edit the dead cards",
     addDead: "Add dead cards",
-    handSheet: (index: number) => `Player ${index + 1}'s hand`,
-    rangeSheet: (index: number) => `Player ${index + 1}'s range`,
+    handSheet: (index: number) => `Player ${num(index + 1)}'s hand`,
+    rangeSheet: (index: number) => `Player ${num(index + 1)}'s range`,
     counting: (progress: number) => `Counting every runout… ${pct(progress)}`,
     sampling: (samples: number) => `Monte Carlo, ${num(samples)} samples so far…`,
     exact: (runouts: number) => `Exact, ${num(runouts)} runouts`,
     monteCarlo: (samples: number) => `Monte Carlo, ${num(samples)} samples`,
     // Setup and engine problems (lib/equity).
-    pickTwo: (index: number) => `Pick two cards for Player ${index + 1}.`,
-    rangeError: (index: number, error: string) => `Player ${index + 1}'s range: ${error}`,
-    paintFor: (index: number) => `Paint a range for Player ${index + 1}.`,
+    pickTwo: (index: number) => `Pick two cards for Player ${num(index + 1)}.`,
+    rangeError: (index: number, error: string) => `Player ${num(index + 1)}'s range: ${error}`,
+    paintFor: (index: number) => `Paint a range for Player ${num(index + 1)}.`,
     tooFew: "Add at least 2 players.",
-    tooMany: (max: number) => `At most ${max} players.`,
+    tooMany: (max: number) => `At most ${num(max)} players.`,
     boardSize: "The board has at most 5 cards.",
-    needsTwo: (index: number) => `Player ${index + 1} needs two cards.`,
+    needsTwo: (index: number) => `Player ${num(index + 1)} needs two cards.`,
     unknownCard: "Unknown card.",
     usedTwice: (card: string) => `${card} is used twice.`,
-    rangeEmpty: (index: number) => `Player ${index + 1}'s range is empty.`,
-    rangeBlocked: (index: number) => `Player ${index + 1}'s range has no hand left after the cards in use.`,
+    rangeEmpty: (index: number) => `Player ${num(index + 1)}'s range is empty.`,
+    rangeBlocked: (index: number) => `Player ${num(index + 1)}'s range has no hand left after the cards in use.`,
     noBoard: "Not enough cards left to deal the board.",
     cannotDeal: "These ranges cannot be dealt together: they need the same cards.",
     overlapTooMuch: "These ranges overlap too much to sample.",
@@ -337,26 +341,28 @@ export const en = {
     betSizes: "Bet sizes",
     flopBets: "One bet size, % of the pot, plus all-in",
     bets: "Bets, % of the pot, plus all-in",
-    betSize: (percent: number) => `${percent}%`,
+    betSize: (percent: number) => pct(percent / 100),
     flopRaises: "Raises are all-in only in flop spots.",
     raises: "Raise to, times the bet, plus all-in",
     times: (multiple: number) => `${num(multiple, 1)}×`,
     solveSr: "Solve",
     sizing: "Sizing the game tree…",
-    estimate: (decisions: number, memory: string, oop: number, ip: number) => `${num(decisions)} decisions, about ${memory} of memory, ${oop} vs ${ip} combos.`,
+    estimate: (decisions: number, memoryBytes: number, oop: number, ip: number) =>
+      `${num(decisions)} decisions, about ${megabytes(memoryBytes)} of memory, ${num(oop)} vs ${num(ip)} combos.`,
     solve: "Solve",
     solveAgain: "Solve again",
     continue: "Continue",
     stale: "The setup has changed since this solve. Solve again to update the strategy.",
     building: "Building the tree…",
     starting: "Starting the Solver…",
-    measuring: (iteration: number) => `Iteration ${iteration}, measuring exploitability…`,
+    measuring: (iteration: number) => `Iteration ${num(iteration)}, measuring exploitability…`,
     running: (iteration: number, share: number | null, ms: number) =>
-      `Iteration ${iteration}: exploitability ${potShare(share)} of the pot (target ${pct(0.005, 1)}), ${seconds(ms)}.`,
-    converged: (share: number | null, iterations: number, ms: number) => `Solved: exploitability ${potShare(share)} of the pot after ${iterations} iterations in ${seconds(ms)}.`,
+      `Iteration ${num(iteration)}: exploitability ${potShare(share)} of the pot (target ${pct(0.005, 1)}), ${seconds(ms)}.`,
+    converged: (share: number | null, iterations: number, ms: number) =>
+      `Solved: exploitability ${potShare(share)} of the pot after ${num(iterations)} iterations in ${seconds(ms)}.`,
     stopped: (share: number | null, iterations: number, ms: number) =>
-      `Stopped at ${potShare(share)} of the pot after ${iterations} iterations in ${seconds(ms)}. The strategy so far is below.`,
-    maxIterations: (iterations: number, share: number | null) => `Reached ${iterations} iterations at ${potShare(share)} of the pot, above the ${pct(0.005, 1)} target.`,
+      `Stopped at ${potShare(share)} of the pot after ${num(iterations)} iterations in ${seconds(ms)}. The strategy so far is below.`,
+    maxIterations: (iterations: number, share: number | null) => `Reached ${num(iterations)} iterations at ${potShare(share)} of the pot, above the ${pct(0.005, 1)} target.`,
     unknown: "?",
     // Sheets (app/solver/setup-sheets.tsx).
     action: "Action",
@@ -366,10 +372,9 @@ export const en = {
     caller: "Caller",
     depthField: "Effective stack before the hand, in bb",
     levelField: "Blind level, for the blinds in the pot",
-    levelOption: (level: number, sb: number, bigBlind: number) => `${level}: ${num(sb)}/${num(bigBlind)}`,
     enterDepth: "Enter the stack depth in bb",
     lineSummary: (pot: number, stack: number, tier: string) => `Pot ${bb(pot)}, ${bb(stack)} behind. Ranges from your ${tier} Charts.`,
-    lineNote: (min: number) => `Done replaces both ranges, the pot and the stack. Below ${min}bb the Push/fold charts apply.`,
+    lineNote: (min: number) => `Done replaces both ranges, the pot and the stack. Below ${num(min)}bb the Push/fold charts apply.`,
     amountsTitle: "Pot and stack",
     potField: "Pot at the start of the street, in bb",
     stackField: "Effective stack behind, in bb",
@@ -378,8 +383,8 @@ export const en = {
     // Preflop lines (lib/solver/preflop-line.ts).
     limpLine: (depth: number) => `SB limps, BB checks, ${bb(depth)}`,
     openLine: (opener: string, size: number | null, caller: string, depth: number) => `${opener} opens${size === null ? "" : ` ${bb(size)}`}, ${caller} calls, ${bb(depth)}`,
-    level: (level: number, sb: number, bigBlind: number) => `level ${level} (${num(sb)}/${num(bigBlind)})`,
-    belowMin: (min: number) => `Below ${min}bb the Push/fold charts apply: pick a deeper stack`,
+    level: (level: number, sb: number, bigBlind: number) => `level ${num(level)} (${num(sb)}/${num(bigBlind)})`,
+    belowMin: (min: number) => `Below ${num(min)}bb the Push/fold charts apply: pick a deeper stack`,
     callerAfter: "The caller must act after the opener",
     openerBeforeBb: "The opener must be a Position before the BB",
     // Spot setup and checks (lib/solver/spot-setup.ts, spot.ts, estimate.ts).
@@ -396,11 +401,20 @@ export const en = {
     raiseCap: "The raise cap must be a whole number",
     flopOneBet: "Flop Spots allow one bet size plus all-in",
     emptyRange: (player: string) => `${player}'s range is empty on this board`,
-    megabytes: (bytes: number) => `${num(Math.max(1, Math.ceil(bytes / 2 ** 20)))} MB`,
-    overBudget: (memory: string, budget: string, fixes: { betSize: boolean; laterStreet: boolean }) => {
-      const steps = ["Narrow the ranges", ...(fixes.betSize ? ["drop a bet size"] : []), ...(fixes.laterStreet ? ["start from a later street"] : [])];
-      const advice = steps.length > 1 ? `${steps.slice(0, -1).join(", ")} or ${steps.at(-1)}` : steps[0];
-      return `This spot needs about ${memory}, above the ${budget} budget. ${advice}.`;
+    errors: {
+      overBudget: (memoryBytes: number, budgetBytes: number, fixes: { betSize: boolean; laterStreet: boolean }) => {
+        const steps = ["Narrow the ranges", ...(fixes.betSize ? ["drop a bet size"] : []), ...(fixes.laterStreet ? ["start from a later street"] : [])];
+        const advice = steps.length > 1 ? `${steps.slice(0, -1).join(", ")} or ${steps.at(-1)}` : steps[0];
+        return `This spot needs about ${megabytes(memoryBytes)}, above the ${megabytes(budgetBytes)} budget. ${advice}.`;
+      },
+      badPath: (step: number) => `The tree has no such path (step ${num(step)}).`,
+      "blocked-ranges": "The two ranges block each other completely on this board.",
+      "no-solve": "There is no solve to resume.",
+      "solve-gone": "That solve is no longer available.",
+      "not-started": "Start a solve before reading its tree.",
+      "still-running": "The solve is still running.",
+      "no-worker": "The Solver is not running.",
+      internal: (message: string) => `Solver error: ${message}`,
     },
   },
   strategy: {
@@ -454,7 +468,7 @@ export const en = {
     find: "Find a term or abbreviation",
     filterSr: " the filter",
     noMatch: (query: string) => `No term matches “${query}”.`,
-    count: (count: number) => `${count} ${s(count, "term", "terms")}`,
+    count: (count: number) => `${num(count)} ${s(count, "term", "terms")}`,
     example: (text: string) => `Example: ${text}`,
     topics: {
       actions: "Actions",
@@ -467,10 +481,5 @@ export const en = {
     } satisfies Record<GlossaryTopic, string>,
   },
 };
-
-function seconds(ms: number): string {
-  const decimals = ms < 10_000 ? 1 : 0;
-  return `${num(ms / 1000, decimals, decimals)} s`;
-}
 
 export type Messages = typeof en;

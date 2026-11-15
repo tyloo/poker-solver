@@ -66,17 +66,16 @@ describe("filterTerms", () => {
 
 describe("groupByTopic", () => {
   it("follows the topic order and skips empty topics", () => {
-    const groups = groupByTopic(SAMPLE, "en");
+    const groups = groupByTopic(SAMPLE);
     expect(groups.map((group) => group.topic)).toEqual(["numbers", "actions", "table"]);
     expect(ids(groups[0].terms)).toEqual(["spr", "pot-odds"]);
-    expect(groups[0].label).toBe("Numbers the tools show");
-    expect(groupByTopic(SAMPLE, "fr")[0].label).toBe("Les chiffres des outils");
   });
 });
 
 describe("glossaryHref", () => {
-  it("links to the term's anchor", () => {
-    expect(glossaryHref("equity")).toBe("/glossary#equity");
+  it("links to the term's anchor in the page's language", () => {
+    expect(glossaryHref("equity", "en")).toBe("/glossary#equity");
+    expect(glossaryHref("equity", "fr")).toBe("/fr/glossary#equity");
   });
 });
 
@@ -227,7 +226,7 @@ describe("the repo glossary", () => {
 
   it("only uses known topics, and every topic has terms", () => {
     for (const entry of GLOSSARY) expect(GLOSSARY_TOPICS).toContain(entry.topic);
-    expect(groupByTopic(GLOSSARY, "en").map((group) => group.topic)).toEqual([...GLOSSARY_TOPICS]);
+    expect(groupByTopic(GLOSSARY).map((group) => group.topic)).toEqual([...GLOSSARY_TOPICS]);
   });
 
   it.each(REQUIRED)("has an entry named %s", (name) => {
@@ -304,5 +303,32 @@ describe("the French glossary", () => {
 
   it("finds the action names the French tools show", () => {
     for (const label of Object.values(messages("fr").actions)) expect(filterTerms(french, label).length, label).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("filtering across languages", () => {
+  const english = glossaryTerms("en");
+  const french = glossaryTerms("fr");
+
+  it("finds a French query on the English page, so the filter survives a language switch", () => {
+    expect(ids(filterTerms(english, "relance"))).toEqual(ids(filterTerms(french, "relance")));
+    expect(ids(filterTerms(english, "relance"))).toContain("raise");
+    expect(ids(filterTerms(english, "Cote du pot"))).toContain("pot-odds");
+  });
+
+  it("finds every French name, abbreviation and alias on the English page", () => {
+    for (const [id, translation] of Object.entries(GLOSSARY_FR)) {
+      for (const name of [translation.term, translation.abbreviation, ...(translation.aliases ?? [])].filter((value) => value !== undefined)) {
+        expect(ids(filterTerms(english, name)), name).toContain(id);
+      }
+    }
+  });
+
+  it("finds every English name on the French page", () => {
+    for (const entry of GLOSSARY) for (const name of termNames(entry)) expect(ids(filterTerms(french, name)), name).toContain(entry.id);
+  });
+
+  it("shows the English text on the English page", () => {
+    expect(english.map(({ id, term, definition }) => ({ definition, id, term }))).toEqual(GLOSSARY.map(({ id, term, definition }) => ({ definition, id, term })));
   });
 });

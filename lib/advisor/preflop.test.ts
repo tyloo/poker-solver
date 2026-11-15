@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { getChart, getPushFoldChart } from "@/lib/charts/charts";
+import { adviceContextText, chartNoteText, chartTitle, verdictSize, verdictTitle } from "@/lib/i18n/advisor";
 import type { Locale } from "@/lib/i18n/locale";
 import { type CardId, cardId, parseCards } from "@/lib/poker/card";
 import { comboId } from "@/lib/poker/combo";
-import { advisePreflop, limperGroupsFor, type PreflopAdvice, type PreflopQuestion, positionsBefore, verdictSize } from "./preflop";
+import { advisePreflop, limperGroupsFor, type PreflopAdvice, type PreflopQuestion, positionsBefore } from "./preflop";
 
 const hand = (text: string): [CardId, CardId] => {
   const cards = parseCards(text);
@@ -20,8 +21,10 @@ const question = (overrides: Partial<PreflopQuestion>): PreflopQuestion => ({
   ...overrides,
 });
 
-function advice(input: Partial<PreflopQuestion>, locale: Locale = "en"): Extract<PreflopAdvice, { kind: "advice" }> {
-  const result = advisePreflop(question(input), locale);
+const context = (result: Extract<PreflopAdvice, { kind: "advice" }>, locale: Locale) => adviceContextText(result.context, locale);
+
+function advice(input: Partial<PreflopQuestion>): Extract<PreflopAdvice, { kind: "advice" }> {
+  const result = advisePreflop(question(input));
   if (result.kind !== "advice") throw new Error(`Expected advice, got ${JSON.stringify(result)}`);
   return result;
 }
@@ -69,14 +72,14 @@ describe("advisePreflop: Chart lookup", () => {
     const result = advice({ depth: 18 });
     expect(result.chart).toEqual({ key: { position: "CO", situation: "open", tier: "15-20bb" }, kind: "chart" });
     expect(result.href).toBe("/ranges?pos=CO&tier=15-20bb");
-    expect(result.context).toBe("AKo in CO, 15–20bb, folded to you");
+    expect(context(result, "en")).toBe("AKo in CO, 15–20bb, folded to you");
   });
 
   it("writes the context and Chart name in French", () => {
-    const folded = advice({ depth: 18 }, "fr");
-    expect(folded.context).toBe("AKo en CO, 15–20bb, couché jusqu’à toi");
-    expect(folded.chartTitle).toBe("Open en CO, 15–20bb");
-    expect(advice({ depth: 9.5, position: "BB", situation: { kind: "push", pusher: "CO" } }, "fr").context).toBe("AKo en BB, 10bb, CO a pushé");
+    const folded = advice({ depth: 18 });
+    expect(context(folded, "fr")).toBe("AKo en CO, 15–20bb, couché jusqu’à toi");
+    expect(chartTitle(folded.chart, "fr")).toBe("Open en CO, 15–20bb");
+    expect(context(advice({ depth: 9.5, position: "BB", situation: { kind: "push", pusher: "CO" } }), "fr")).toBe("AKo en BB, 10bb, CO a pushé");
   });
 
   it("reads the frequencies of the hero's Combo from the Chart", () => {
@@ -101,7 +104,7 @@ describe("advisePreflop: Chart lookup", () => {
   it("uses the Vs open Chart with the opener's group", () => {
     const result = advice({ depth: 25, position: "BTN", situation: { kind: "open", opener: "HJ" } });
     expect(result.chart).toEqual({ key: { opener: "middle", position: "BTN", situation: "vs-open", tier: "25bb" }, kind: "chart" });
-    expect(result.context).toBe("AKo in BTN, 25bb, HJ opened");
+    expect(context(result, "en")).toBe("AKo in BTN, 25bb, HJ opened");
   });
 
   it("uses the Vs limpers Chart, the BB facing an SB limp included", () => {
@@ -112,7 +115,7 @@ describe("advisePreflop: Chart lookup", () => {
     const bb = advice({ hand: hand("7c2d"), players: 2, position: "BB", situation: { kind: "limps", limpers: "1" } });
     expect(bb.chart).toEqual({ key: { limpers: "1", position: "BB", situation: "vs-limpers", tier: "40bb+" }, kind: "chart" });
     expect(bb.verdict.action.id).toBe("check");
-    expect(bb.context).toBe("72o in BB, 40bb+, 1 limper before you");
+    expect(context(bb, "en")).toBe("72o in BB, 40bb+, 1 limper before you");
   });
 
   it("uses the Push chart below 15bb when folded to the hero", () => {
@@ -121,14 +124,14 @@ describe("advisePreflop: Chart lookup", () => {
     expect(result.verdict.action.id).toBe("push");
     expect(result.href).toBe("/ranges?sit=push");
     expect(advice({ depth: 8, position: "CO" }).href).toBe("/ranges?pos=CO&sit=push");
-    expect(result.context).toBe("AKo in BTN, 8bb, folded to you");
+    expect(context(result, "en")).toBe("AKo in BTN, 8bb, folded to you");
   });
 
   it("uses the Vs push chart with the pusher's group", () => {
     const result = advice({ depth: 10, hand: hand("AhAd"), position: "BB", situation: { kind: "push", pusher: "CO" } });
     expect(result.chart).toEqual({ key: { depth: 10, position: "BB", pusher: "late", situation: "vs-push" }, kind: "push-fold" });
     expect(result.verdict.action.id).toBe("call");
-    expect(result.context).toBe("AA in BB, 10bb, CO pushed");
+    expect(context(result, "en")).toBe("AA in BB, 10bb, CO pushed");
     const call = getPushFoldChart({ depth: 10, position: "BB", pusher: "late", situation: "vs-push" }).actions[0].range;
     expect(result.actions[0].frequency).toBe(call[comboId(...hand("AhAd"))]);
   });
@@ -136,14 +139,16 @@ describe("advisePreflop: Chart lookup", () => {
   it("caps Vs push at the deepest chart and says so", () => {
     const result = advice({ depth: 40, position: "BB", situation: { kind: "push", pusher: "UTG" } });
     expect(result.chart).toEqual({ key: { depth: 15, position: "BB", pusher: "early", situation: "vs-push" }, kind: "push-fold" });
-    expect(result.note).toMatch(/15bb/);
+    expect(result.note).toEqual({ code: "vs-push-capped", depth: 15 });
+    expect(chartNoteText({ code: "vs-push-capped", depth: 15 }, "en")).toBe("Vs push charts stop at 15bb, so this is the 15bb chart.");
   });
 
   it("falls back to the 15–20bb Charts below 15bb when facing an open or limpers", () => {
     const result = advice({ depth: 12, position: "BTN", situation: { kind: "open", opener: "CO" } });
     expect(result.chart).toEqual({ key: { opener: "late", position: "BTN", situation: "vs-open", tier: "15-20bb" }, kind: "chart" });
-    expect(result.note).toMatch(/15–20bb/);
-    expect(result.context).toBe("AKo in BTN, 12bb, CO opened");
+    expect(result.note).toEqual({ code: "below-push-fold" });
+    expect(chartNoteText({ code: "below-push-fold" }, "fr")).toMatch(/15–20bb/);
+    expect(context(result, "en")).toBe("AKo in BTN, 12bb, CO opened");
   });
 
   it("marks seeded Charts as baseline", () => {
@@ -154,34 +159,40 @@ describe("advisePreflop: Chart lookup", () => {
 
 describe("advisePreflop: impossible inputs", () => {
   it("gives the walk when folded to the BB", () => {
-    expect(advisePreflop(question({ position: "BB" }), "en")).toEqual({ kind: "walk", reason: "Folded to you in the BB: you win the blinds." });
+    expect(advisePreflop(question({ position: "BB" }))).toEqual({ kind: "walk" });
   });
 
   it("rejects Positions that are not at the table", () => {
-    expect(advisePreflop(question({ players: 6, position: "UTG" }), "en").kind).toBe("invalid");
+    expect(advisePreflop(question({ players: 6, position: "UTG" }))).toEqual({ kind: "invalid", problem: { code: "no-position", players: 6, position: "UTG" } });
   });
 
   it("needs the opener or pusher to act before the hero", () => {
-    expect(advisePreflop(question({ position: "CO", situation: { kind: "open", opener: "BTN" } }), "en").kind).toBe("invalid");
-    expect(advisePreflop(question({ position: "CO", situation: { kind: "push", pusher: "CO" } }), "en").kind).toBe("invalid");
-    expect(advisePreflop(question({ players: 6, position: "CO", situation: { kind: "open", opener: "UTG" } }), "en").kind).toBe("invalid");
+    expect(advisePreflop(question({ position: "CO", situation: { kind: "open", opener: "BTN" } }))).toEqual({ kind: "invalid", problem: { code: "opener-first" } });
+    expect(advisePreflop(question({ position: "CO", situation: { kind: "push", pusher: "CO" } }))).toEqual({ kind: "invalid", problem: { code: "pusher-first" } });
+    expect(advisePreflop(question({ players: 6, position: "CO", situation: { kind: "open", opener: "UTG" } })).kind).toBe("invalid");
   });
 
   it("needs enough Positions before the hero for the limpers", () => {
-    expect(advisePreflop(question({ position: "UTG+1", situation: { kind: "limps", limpers: "2+" } }), "en").kind).toBe("invalid");
-    expect(advisePreflop(question({ position: "UTG", situation: { kind: "limps", limpers: "1" } }), "en").kind).toBe("invalid");
+    expect(advisePreflop(question({ position: "UTG+1", situation: { kind: "limps", limpers: "2+" } }))).toEqual({
+      kind: "invalid",
+      problem: { code: "fewer-than-two", position: "UTG+1" },
+    });
+    expect(advisePreflop(question({ position: "UTG", situation: { kind: "limps", limpers: "1" } }))).toEqual({
+      kind: "invalid",
+      problem: { code: "nobody-before", position: "UTG" },
+    });
   });
 
   it("needs a positive stack", () => {
-    expect(advisePreflop(question({ depth: 0 }), "en").kind).toBe("invalid");
-    expect(advisePreflop(question({ depth: Number.NaN }), "en").kind).toBe("invalid");
+    expect(advisePreflop(question({ depth: 0 }))).toEqual({ kind: "invalid", problem: { code: "no-stack" } });
+    expect(advisePreflop(question({ depth: Number.NaN })).kind).toBe("invalid");
   });
 });
 
 describe("verdict sizes", () => {
   const size = (input: Partial<PreflopQuestion>, bigBlind?: number) => {
     const { verdict } = advice(input);
-    return [verdict.title, verdictSize(verdict, "en", bigBlind)];
+    return [verdictTitle(verdict, "en"), verdictSize(verdict, "en", bigBlind)];
   };
 
   it("opens to the tier's open size, in chips when the Blind level is known", () => {
@@ -209,10 +220,10 @@ describe("verdict sizes", () => {
   });
 
   it("speaks French", () => {
-    const { verdict } = advice({ depth: 50, hand: hand("AsAd") }, "fr");
-    expect([verdict.title, verdictSize(verdict, "fr", 200)]).toEqual(["Relancer", "à 2,5bb (500 jetons)"]);
-    const allIn = advice({ depth: 25, hand: hand("AsAd"), position: "BTN", situation: { kind: "open", opener: "CO" } }, "fr").verdict;
-    expect([allIn.title, verdictSize(allIn, "fr")]).toEqual(["3-bet", "tapis"]);
+    const { verdict } = advice({ depth: 50, hand: hand("AsAd") });
+    expect([verdictTitle(verdict, "fr"), verdictSize(verdict, "fr", 200)]).toEqual(["Relancer", "à 2,5bb (500 jetons)"]);
+    const allIn = advice({ depth: 25, hand: hand("AsAd"), position: "BTN", situation: { kind: "open", opener: "CO" } }).verdict;
+    expect([verdictTitle(allIn, "fr"), verdictSize(allIn, "fr")]).toEqual(["3-bet", "tapis"]);
   });
 
   it("has no size for folds, calls, limps and checks", () => {

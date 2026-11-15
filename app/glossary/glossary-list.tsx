@@ -8,10 +8,10 @@ export function GlossaryList({ groups, target = null }: { groups: readonly Gloss
   const { t } = useI18n();
   return (
     <div className="flex flex-col gap-10">
-      {groups.map(({ topic, label, terms }) => (
+      {groups.map(({ topic, terms }) => (
         <section key={topic} aria-labelledby={`topic-${topic}`}>
           <h2 id={`topic-${topic}`} className="m-0 mb-2 font-bold font-display text-3xl leading-none">
-            {label}
+            {t.glossary.topics[topic]}
           </h2>
           <dl className="m-0 flex flex-col">
             {terms.map((entry) => (

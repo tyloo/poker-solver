@@ -14,14 +14,13 @@ function SwitchLink({ search }: { search: string }) {
 
   return (
     // A plain link: the other language has its own root layout, so this is a full page load anyway.
+    // LANGUAGE_SWITCH_SCRIPT (in the root shell) re-points it from the address bar on tap, query string and anchor included,
+    // even before hydration, when `search` is still empty.
     <a
       href={switchLocaleHref(pathname, search, target)}
+      data-switch-locale={target}
       hrefLang={target}
       lang={target}
-      // Keeps a Glossary anchor, which the router does not report.
-      onClick={(event) => {
-        event.currentTarget.hash = window.location.hash;
-      }}
       className="-mt-1 -mr-2 flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 font-bold text-dust hover:text-chalk focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-2"
     >
       <span aria-hidden="true" className="text-xl leading-none">

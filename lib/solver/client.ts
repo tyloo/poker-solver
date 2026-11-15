@@ -1,3 +1,4 @@
+import { SolverFailure } from "./errors";
 import type { EstimateResult, SpotEstimate } from "./estimate";
 import type { DoneReason, SolveOptions, SolverRequest, SolverResponse, SolveStatus } from "./protocol";
 import type { NodeView } from "./solver";
@@ -23,7 +24,7 @@ export type SolveHandlers = {
 export type SolverClient = {
   /** Tree size and memory for a Spot, without solving (the solve refuses Spots over budget). */
   estimate(spot: Spot): Promise<EstimateResult>;
-  /** Builds the tree and solves until the target, the iteration cap or `stop()`. Rejects on an invalid Spot. */
+  /** Builds the tree and solves until the target, the iteration cap or `stop()`. Rejects with a `SolverFailure`, e.g. on an invalid Spot. */
   solve(spot: Spot, options?: SolveOptions, handlers?: SolveHandlers): Promise<SolveResult>;
   /** Ends the current solve after its slice; the strategy so far stays queryable. */
   stop(): void;
@@ -34,7 +35,7 @@ export type SolverClient = {
   dispose(): void;
 };
 
-type Pending<T> = { resolve: (value: T) => void; reject: (error: Error) => void };
+type Pending<T> = { resolve: (value: T) => void; reject: (error: SolverFailure) => void };
 
 export function connectSolver(port: SolverPort): SolverClient {
   let solveId = 0;
@@ -50,7 +51,7 @@ export function connectSolver(port: SolverPort): SolverClient {
       if (!pending) return;
       if (message.type === "estimate") (pending as Pending<EstimateResult>).resolve(message.result);
       else if (message.type === "node") (pending as Pending<NodeView>).resolve(message.node);
-      else pending.reject(new Error(message.message));
+      else pending.reject(new SolverFailure(message.error));
       return;
     }
     if (!active || message.solveId !== active.solveId) return;
@@ -60,7 +61,7 @@ export function connectSolver(port: SolverPort): SolverClient {
     else if (message.type === "done" || message.type === "error") {
       active = null;
       if (message.type === "done") current.resolve({ reason: message.reason, status: message.status });
-      else current.reject(new Error(message.message));
+      else current.reject(new SolverFailure(message.error));
     }
   };
   port.addEventListener("message", listener);
@@ -88,13 +89,13 @@ export function connectSolver(port: SolverPort): SolverClient {
     },
     estimate: (spot) => request<EstimateResult>((id) => ({ requestId: id, spot, type: "estimate" })),
     query(path) {
-      if (solveId === 0) return Promise.reject(new Error("Start a solve before reading its tree"));
+      if (solveId === 0) return Promise.reject(new SolverFailure({ code: "not-started" }));
       const id = solveId;
       return request<NodeView>((requestId) => ({ path: [...path], requestId, solveId: id, type: "query" }));
     },
     resume(options, handlers = {}) {
-      if (solveId === 0) return Promise.reject(new Error("There is no solve to resume"));
-      if (active) return Promise.reject(new Error("The solve is still running"));
+      if (solveId === 0) return Promise.reject(new SolverFailure({ code: "no-solve" }));
+      if (active) return Promise.reject(new SolverFailure({ code: "still-running" }));
       const result = track(solveId, handlers);
       port.postMessage({ options, solveId, type: "resume" });
       return result;

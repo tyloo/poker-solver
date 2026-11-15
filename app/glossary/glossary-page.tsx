@@ -17,7 +17,7 @@ export function GlossaryPage({ locale }: { locale: Locale }) {
           <div className="flex flex-col gap-6">
             <FilterField value="" />
             <p className="-mt-3 mb-0 min-h-[1.5em]" />
-            <GlossaryList groups={groupByTopic(glossaryTerms(locale), locale)} />
+            <GlossaryList groups={groupByTopic(glossaryTerms(locale))} />
           </div>
         }
       >

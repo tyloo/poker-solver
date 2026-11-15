@@ -19,7 +19,7 @@ The tool that computes a game-theory-optimal postflop strategy for a heads-up **
 _Avoid_: GTO, engine
 
 **Glossary**:
-The tool that explains, in plain English, the poker terms used in the app.
+The tool that explains, in plain words, the poker terms used in the app (in English and French).
 _Avoid_: Help, dictionary
 
 **Advisor**:

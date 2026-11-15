@@ -1,3 +1,4 @@
+import { rangeErrorText } from "@/lib/i18n/range";
 import { formatCombo, HAND_CLASS_COUNT, HAND_CLASS_NAMES, handClassCombos } from "./combo";
 import { parseRange, type Range } from "./range";
 
@@ -9,6 +10,7 @@ const show = (value: number) => String(Math.round(value * 1e6) / 1e6);
 /**
  * Validates a Chart given as one range string per action (fold is the implicit remainder):
  * every string parses without overlaps, and the Action frequencies of each Combo sum to at most 1.
+ * The errors are for whoever edits the Chart files, so they stay in English.
  */
 export function validateChart<Action extends string>(actions: Readonly<Record<Action, string>>): ChartValidation<Action> {
   const names = Object.keys(actions) as Action[];
@@ -17,7 +19,7 @@ export function validateChart<Action extends string>(actions: Readonly<Record<Ac
   for (const name of names) {
     const result = parseRange(actions[name]);
     if (result.ok) ranges[name] = result.range;
-    else errors.push(`${name}: ${result.error}`);
+    else errors.push(`${name}: ${rangeErrorText(result.error, "en")}`);
   }
   if (errors.length > 0) return { errors, ok: false };
 

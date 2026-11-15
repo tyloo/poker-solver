@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { connectSolver, type SolveHandlers, type SolveResult, type SolverClient } from "./client";
+import { type SolverError, SolverFailure, solverErrorOf } from "./errors";
 import type { EstimateResult, SpotEstimate } from "./estimate";
 import type { DoneReason, SolveOptions, SolveStatus } from "./protocol";
 import type { NodeView } from "./solver";
@@ -12,11 +13,10 @@ export type SolveRun =
   | { status: "idle" }
   | { status: "running"; key: string; estimate: SpotEstimate | null; progress: SolveStatus | null }
   | { status: "done"; key: string; estimate: SpotEstimate | null; reason: DoneReason; progress: SolveStatus }
-  | { status: "error"; key: string; message: string };
+  | { status: "error"; key: string; error: SolverError };
 
 /** Progress repaints at most this often, so a phone does not jank. */
 const PROGRESS_MS = 250;
-const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /**
  * Runs the Solver in a Web Worker, started on mount so the service worker caches its chunks.
@@ -45,7 +45,7 @@ export function useSolver(spot: Spot | null, key: string) {
         if (clientRef.current === client) setEstimate({ key, result });
       },
       (error: unknown) => {
-        if (clientRef.current === client) setEstimate({ key, result: { error: errorMessage(error), ok: false } });
+        if (clientRef.current === client) setEstimate({ key, result: { error: solverErrorOf(error), ok: false } });
       },
     );
   }, [key]);
@@ -73,7 +73,7 @@ export function useSolver(spot: Spot | null, key: string) {
         if (current() && reason !== "superseded") setRun({ estimate: latest, key: solveKey, progress: status, reason, status: "done" });
       },
       (error: unknown) => {
-        if (current()) setRun({ key: solveKey, message: errorMessage(error), status: "error" });
+        if (current()) setRun({ error: solverErrorOf(error), key: solveKey, status: "error" });
       },
     );
   };
@@ -91,6 +91,6 @@ export function useSolver(spot: Spot | null, key: string) {
     resume(options?: SolveOptions) {
       if (run.status === "done") start(run.key, run.estimate, (client, handlers) => client.resume(options, handlers));
     },
-    query: (path: readonly number[]): Promise<NodeView> => clientRef.current?.query(path) ?? Promise.reject(new Error("The Solver is not running")),
+    query: (path: readonly number[]): Promise<NodeView> => clientRef.current?.query(path) ?? Promise.reject(new SolverFailure({ code: "no-worker" })),
   };
 }

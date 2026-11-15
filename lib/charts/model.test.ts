@@ -1,18 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { STACK_TIERS } from "@/lib/poker/table";
-import {
-  type ChartSelection,
-  chartActions,
-  chartHref,
-  chartKeyFor,
-  chartKeys,
-  describeChart,
-  groupAvailable,
-  heroPositions,
-  openerGroupOf,
-  parseChartParams,
-  selectionParams,
-} from "./model";
+import { type ChartSelection, chartActions, chartHref, chartKeyFor, chartKeys, groupAvailable, heroPositions, openerGroupOf, parseChartParams, selectionParams } from "./model";
 
 const selection = (overrides: Partial<ChartSelection>): ChartSelection => ({ limpers: "1", opener: "early", position: "CO", situation: "open", tier: "40bb+", ...overrides });
 
@@ -125,21 +113,6 @@ describe("chartActions", () => {
     const actions = chartActions({ position: "SB", situation: "open", tier: "40bb+" });
     expect(actions.map((action) => action.remainder)).toEqual([false, false, true]);
     expect(actions.map((action) => action.colour)).toEqual(["raise", "call", "fold"]);
-  });
-});
-
-describe("describeChart", () => {
-  it("names the Chart in plain words", () => {
-    expect(describeChart({ position: "CO", situation: "open", tier: "40bb+" }, "en")).toBe("CO open, 40bb+");
-    expect(describeChart({ opener: "late", position: "BB", situation: "vs-open", tier: "15-20bb" }, "en")).toBe("BB vs late open, 15–20bb");
-    expect(describeChart({ limpers: "2+", position: "SB", situation: "vs-limpers", tier: "25bb" }, "en")).toBe("SB vs 2+ limpers, 25bb");
-    expect(describeChart({ limpers: "1", position: "BTN", situation: "vs-limpers", tier: "25bb" }, "en")).toBe("BTN vs 1 limper, 25bb");
-  });
-
-  it("names the Chart in French", () => {
-    expect(describeChart({ position: "CO", situation: "open", tier: "40bb+" }, "fr")).toBe("Open en CO, 40bb+");
-    expect(describeChart({ opener: "late", position: "BB", situation: "vs-open", tier: "15-20bb" }, "fr")).toBe("BB face à un open en fin de parole, 15–20bb");
-    expect(describeChart({ limpers: "2+", position: "SB", situation: "vs-limpers", tier: "25bb" }, "fr")).toBe("SB face à 2+ limpers, 25bb");
   });
 });
 

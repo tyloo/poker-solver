@@ -74,7 +74,7 @@ export function GlossaryTool() {
       <p aria-live="polite" className="-mt-3 mb-0 min-h-[1.5em] text-dust">
         {text.trim() === "" ? "" : terms.length === 0 ? t.glossary.noMatch(text.trim()) : t.glossary.count(terms.length)}
       </p>
-      <GlossaryList groups={groupByTopic(terms, locale)} target={target} />
+      <GlossaryList groups={groupByTopic(terms)} target={target} />
     </div>
   );
 }

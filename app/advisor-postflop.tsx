@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { primaryButton, textButton } from "@/components/buttons";
+import { linkButton, textButton } from "@/components/buttons";
 import { CardKeypadSheet } from "@/components/card-keypad-sheet";
 import { Segmented } from "@/components/chart-picker";
 import { useI18n } from "@/components/i18n-provider";
@@ -27,6 +27,8 @@ import type { ActionColour } from "@/lib/charts/model";
 import { PLAYER_TYPES } from "@/lib/charts/player-types";
 import type { EquityInput, EquityResult } from "@/lib/equity/engine";
 import { type EquityRun, useEquity } from "@/lib/equity/use-equity";
+import { opponentLineText, opponentNoteText, opponentProblemText, postflopReasonText, postflopUnavailableText } from "@/lib/i18n/advisor";
+import { equityErrorText } from "@/lib/i18n/equity";
 import { type CardId, cardFromId } from "@/lib/poker/card";
 import type { Range } from "@/lib/poker/range";
 import { solverHref } from "@/lib/solver/spot-url";
@@ -41,7 +43,7 @@ export function AdvisorPostflop({ setup, question, advice, update }: Props) {
   const { locale, t } = useI18n();
   const [picking, setPicking] = useState(false);
   const { board } = setup;
-  const line = question && advice ? postflopLine(question, advice, locale) : null;
+  const line = question && advice ? postflopLine(question, advice) : null;
 
   return (
     <section aria-labelledby="postflop-heading" className="flex flex-col gap-3">
@@ -70,7 +72,7 @@ export function AdvisorPostflop({ setup, question, advice, update }: Props) {
       {!line ? (
         <p className="m-0 text-dust">{t.postflop.handFirst}</p>
       ) : !line.ok ? (
-        <p className="m-0 text-dust">{line.reason}</p>
+        <p className="m-0 text-dust">{postflopUnavailableText(line.reason, locale)}</p>
       ) : board.length < 3 ? (
         <p className="m-0 text-dust">{t.postflop.addFlop}</p>
       ) : (
@@ -103,7 +105,7 @@ function PostflopInputs({ setup, line, update }: { setup: AdvisorSetup; line: Po
     positions.includes(opponent.position),
   );
   const setOpponents = (next: Opponent[]) => update({ opponents: [...next].sort((a, b) => positions.indexOf(a.position) - positions.indexOf(b.position)) });
-  const ranges = opponents.map((opponent) => ({ opponent, result: opponentRange(line, opponent, locale) }));
+  const ranges = opponents.map((opponent) => ({ opponent, result: opponentRange(line, opponent) }));
 
   return (
     <>
@@ -148,7 +150,7 @@ function PostflopInputs({ setup, line, update }: { setup: AdvisorSetup; line: Po
             <li key={opponent.position} className="rounded-2xl border-2 border-booth p-4">
               <p className="m-0 mb-2">
                 <span className="font-bold font-display text-2xl">{opponent.position}</span>
-                {result.ok && <span className="text-dust">{`, ${result.line}`}</span>}
+                {result.ok && <span className="text-dust">{`, ${opponentLineText(result.line, locale)}`}</span>}
               </p>
               <Segmented
                 legend={t.postflop.playerType(opponent.position)}
@@ -156,8 +158,8 @@ function PostflopInputs({ setup, line, update }: { setup: AdvisorSetup; line: Po
                 value={opponent.type}
                 onChange={(type) => setOpponents(opponents.map((other, i) => (i === index ? { ...other, type } : other)))}
               />
-              {!result.ok && <p className="m-0 mt-2 text-raise">{result.error}</p>}
-              {result.ok && result.note && <p className="m-0 mt-2 text-dust text-sm">{result.note}</p>}
+              {!result.ok && <p className="m-0 mt-2 text-raise">{opponentProblemText(result.error, locale)}</p>}
+              {result.ok && result.note && <p className="m-0 mt-2 text-dust text-sm">{opponentNoteText(result.note, locale)}</p>}
             </li>
           ))}
         </ul>
@@ -199,7 +201,7 @@ function PostflopResults({ setup, line, opponents }: { setup: AdvisorSetup; line
   const hand = setup.hand as CardId[];
   const input: EquityInput = { board: setup.board, dead: [], players: [{ cards: hand, kind: "hand" }, ...opponents.map(({ range }) => ({ kind: "range" as const, range }))] };
   const key = JSON.stringify([hand, setup.board, opponents.map(({ position, type }) => [position, type]), line.key, line.heroAction]);
-  const run = useEquity(input, key, locale);
+  const run = useEquity(input, key);
   const result = visibleResult(run);
   const equity = result?.players[0]?.equity ?? null;
 
@@ -208,11 +210,11 @@ function PostflopResults({ setup, line, opponents }: { setup: AdvisorSetup; line
   const bet = setup.bet ?? 0;
   const amounts = pot !== null && stack !== null ? { bet, pot, stack } : null;
   const numbers = amounts ? postflopNumbers(amounts) : null;
-  const verdict = amounts && equity !== null && run.status === "done" ? postflopVerdict({ ...amounts, equity, opponents: opponents.length }, locale) : null;
+  const verdict = amounts && equity !== null && run.status === "done" ? postflopVerdict({ ...amounts, equity, opponents: opponents.length }) : null;
 
   const status =
     run.status === "error"
-      ? run.message
+      ? equityErrorText(run.error, locale)
       : !result
         ? t.common.calculating
         : t.postflop.versus(
@@ -241,14 +243,21 @@ function PostflopResults({ setup, line, opponents }: { setup: AdvisorSetup; line
 
       <VerdictCard
         label={t.postflop.heuristic}
-        verdict={verdict && { aside: t.postflop.heuristicAside, colour: VERDICT_COLOURS[verdict.kind], detail: verdict.reason, title: verdict.title }}
+        verdict={
+          verdict && {
+            aside: t.postflop.heuristicAside,
+            colour: VERDICT_COLOURS[verdict.kind],
+            detail: postflopReasonText(verdict.reason, locale),
+            title: t.postflop.verdicts[verdict.kind],
+          }
+        }
         prompt={amounts ? t.common.calculating : t.postflop.enterPot}
         flipKey={verdict?.kind ?? ""}
       />
 
       {solver ? (
         <div>
-          <Link href={solver} className={`inline-flex items-center ${primaryButton}`}>
+          <Link href={solver} className={linkButton}>
             {t.postflop.openInSolver}
           </Link>
         </div>

@@ -28,3 +28,9 @@ export const switchLocaleHref = (pathname: string, search: string, target: Local
  * phone opens `/fr` with the same query string. It runs before the first paint; nothing is stored.
  */
 export const FRENCH_START_SCRIPT = `try{var l=location,r=document.referrer;if(l.pathname==="/"&&!(r&&new URL(r).origin===l.origin)&&/^fr(-|$)/i.test(navigator.language||""))l.replace("/fr"+l.search+l.hash)}catch(e){}`;
+
+/**
+ * Inline script for every page: the language link (`a[data-switch-locale]`) gets its target from the address bar
+ * when it is tapped, so it keeps the tool, the query string and the anchor even before hydration. Same paths as `switchLocaleHref`.
+ */
+export const LANGUAGE_SWITCH_SCRIPT = `document.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[data-switch-locale]");if(!a)return;var l=location,p=l.pathname,t=p==="/fr"||p.indexOf("/fr/")===0?p.slice(3)||"/":p;a.href=(a.getAttribute("data-switch-locale")==="fr"?"/fr"+(t==="/"?"":t):t)+l.search+l.hash},true)`;

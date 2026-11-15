@@ -1,3 +1,4 @@
+import { solverErrorOf } from "./errors";
 import { estimateSpot } from "./estimate";
 import { DEFAULT_SOLVE_OPTIONS, type DoneReason, type SolveOptions, type SolverRequest, type SolverResponse, type SolveStatus } from "./protocol";
 import { type NodeView, Solver } from "./solver";
@@ -21,8 +22,6 @@ type Job = {
   exploitability: number | null;
   measuredAt: number;
 };
-
-const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 function buffers(node: NodeView): Transferable[] {
   const list: Transferable[] = [];
@@ -88,7 +87,7 @@ export function createSolverHost(
   const start = (current: Job) =>
     run(current).catch((error: unknown) => {
       current.running = false;
-      post({ message: errorMessage(error), solveId: current.solveId, type: "error" });
+      post({ error: solverErrorOf(error), solveId: current.solveId, type: "error" });
     });
 
   function handle(request: SolverRequest): void {
@@ -102,7 +101,7 @@ export function createSolverHost(
         try {
           solver = new Solver(request.spot);
         } catch (error) {
-          post({ message: errorMessage(error), solveId: request.solveId, type: "error" });
+          post({ error: solverErrorOf(error), solveId: request.solveId, type: "error" });
           return;
         }
         const current: Job = {
@@ -125,7 +124,7 @@ export function createSolverHost(
         return;
       case "resume":
         if (job?.solveId !== request.solveId) {
-          post({ message: "There is no solve to resume", solveId: request.solveId, type: "error" });
+          post({ error: { code: "no-solve" }, solveId: request.solveId, type: "error" });
           return;
         }
         if (job.running) return;
@@ -135,14 +134,14 @@ export function createSolverHost(
       case "query": {
         const { requestId, solveId } = request;
         if (job?.solveId !== solveId) {
-          post({ message: "That solve is no longer available", requestId, solveId, type: "error" });
+          post({ error: { code: "solve-gone" }, requestId, solveId, type: "error" });
           return;
         }
         try {
           const node = job.solver.view(request.path);
           post({ node, requestId, solveId, type: "node" }, buffers(node));
         } catch (error) {
-          post({ message: errorMessage(error), requestId, solveId, type: "error" });
+          post({ error: solverErrorOf(error), requestId, solveId, type: "error" });
         }
       }
     }

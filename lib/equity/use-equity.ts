@@ -1,17 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Locale } from "@/lib/i18n/locale";
-import type { EquityInput, EquityResult } from "./engine";
+import type { EquityError, EquityInput, EquityResult } from "./engine";
 import type { EquityRequest, EquityResponse } from "./protocol";
 
-export type EquityRun = { status: "idle" } | { status: "running"; result: EquityResult | null } | { status: "done"; result: EquityResult } | { status: "error"; message: string };
+export type EquityRun =
+  | { status: "idle" }
+  | { status: "running"; result: EquityResult | null }
+  | { status: "done"; result: EquityResult }
+  | { status: "error"; error: EquityError };
 
 /**
  * Computes equity in a Web Worker and restarts whenever `key` changes, so `key` must identify `input`
  * (e.g. its URL form). The worker starts on mount, which also lets the service worker cache it.
  */
-export function useEquity(input: EquityInput | null, key: string, locale: Locale): EquityRun {
+export function useEquity(input: EquityInput | null, key: string): EquityRun {
   const workerRef = useRef<Worker | null>(null);
   const requestRef = useRef(0);
   const [run, setRun] = useState<EquityRun>({ status: "idle" });
@@ -21,7 +24,7 @@ export function useEquity(input: EquityInput | null, key: string, locale: Locale
     worker.onmessage = (event: MessageEvent<EquityResponse>) => {
       const message = event.data;
       if (message.id !== requestRef.current) return;
-      if (message.type === "error") setRun({ message: message.message, status: "error" });
+      if (message.type === "error") setRun({ error: message.error, status: "error" });
       else setRun({ result: message.result, status: message.type === "done" ? "done" : "running" });
     };
     workerRef.current = worker;
@@ -40,7 +43,7 @@ export function useEquity(input: EquityInput | null, key: string, locale: Locale
       return;
     }
     setRun({ result: null, status: "running" });
-    post({ id, input, locale, type: "start" });
+    post({ id, input, type: "start" });
   }, [key]);
 
   return run;

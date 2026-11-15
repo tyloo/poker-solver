@@ -3,7 +3,7 @@ import { type CardId, cardId, parseCards } from "@/lib/poker/card";
 import { COMBO_COUNT, COMBO_HI, COMBO_LO } from "@/lib/poker/combo";
 import { evaluate } from "@/lib/poker/evaluator";
 import { parseRange, type Range } from "@/lib/poker/range";
-import { computeEquity, createEquityJob, type EquityInput, type EquityOptions, type EquityPlayer, type EquityResult, seededRandom } from "./engine";
+import { computeEquity, createEquityJob, type EquityError, type EquityInput, type EquityOptions, type EquityPlayer, type EquityResult, seededRandom } from "./engine";
 
 const cards = (text: string): CardId[] => (parseCards(text) ?? []).map(cardId);
 const hand = (text: string): EquityPlayer => ({ cards: cards(text), kind: "hand" });
@@ -11,7 +11,7 @@ const random: EquityPlayer = { kind: "random" };
 
 function rangeOf(text: string): Range {
   const result = parseRange(text);
-  if (!result.ok) throw new Error(result.error);
+  if (!result.ok) throw new Error(JSON.stringify(result.error));
   return result.range;
 }
 const range = (text: string): EquityPlayer => ({ kind: "range", range: rangeOf(text) });
@@ -22,11 +22,11 @@ function input(players: EquityPlayer[], board = "", dead = ""): EquityInput {
 
 function run(value: EquityInput, options: EquityOptions = {}): EquityResult {
   const outcome = computeEquity(value, { random: seededRandom(1), ...options });
-  if (!outcome.ok) throw new Error(outcome.error);
+  if (!outcome.ok) throw new Error(JSON.stringify(outcome.error));
   return outcome.result;
 }
 
-function errorOf(value: EquityInput): string {
+function errorOf(value: EquityInput): EquityError {
   const outcome = computeEquity(value, { random: seededRandom(1) });
   if (outcome.ok) throw new Error("expected an error");
   return outcome.error;
@@ -177,7 +177,7 @@ describe("exact enumeration matches an independent reference", () => {
   it("gives the same answer however it is sliced", () => {
     const value = input([hand("AhKh"), range("TT+, AQs+")], "Qh7h2c");
     const outcome = createEquityJob(value);
-    if (!outcome.ok) throw new Error(outcome.error);
+    if (!outcome.ok) throw new Error(JSON.stringify(outcome.error));
     while (!outcome.job.step(97));
     expect(outcome.job.result()).toEqual(run(value));
   });
@@ -251,26 +251,26 @@ describe("Monte Carlo", () => {
 
 describe("input errors", () => {
   it("needs 2 to 8 players", () => {
-    expect(errorOf(input([hand("AsAh")]))).toBe("Add at least 2 players.");
-    expect(errorOf(input(Array.from({ length: 9 }, () => random)))).toBe("At most 8 players.");
+    expect(errorOf(input([hand("AsAh")]))).toEqual({ code: "too-few" });
+    expect(errorOf(input(Array.from({ length: 9 }, () => random)))).toEqual({ code: "too-many", max: 8 });
   });
 
   it("rejects a hand without two cards and a board above five", () => {
-    expect(errorOf(input([hand("As"), random]))).toBe("Player 1 needs two cards.");
-    expect(errorOf(input([random, random], "AsKsQsJsTs9s"))).toBe("The board has at most 5 cards.");
+    expect(errorOf(input([hand("As"), random]))).toEqual({ code: "needs-two", player: 0 });
+    expect(errorOf(input([random, random], "AsKsQsJsTs9s"))).toEqual({ code: "board-size" });
   });
 
   it("rejects a card used twice", () => {
-    expect(errorOf(input([hand("AsAh"), hand("AsKd")]))).toBe("A♠ is used twice.");
-    expect(errorOf(input([hand("AsAh"), random], "Ah7d2c"))).toBe("A♥ is used twice.");
+    expect(errorOf(input([hand("AsAh"), hand("AsKd")]))).toEqual({ card: cards("As")[0], code: "used-twice" });
+    expect(errorOf(input([hand("AsAh"), random], "Ah7d2c"))).toEqual({ card: cards("Ah")[0], code: "used-twice" });
   });
 
   it("rejects a range with no possible hand", () => {
-    expect(errorOf(input([hand("AsAh"), range("")]))).toBe("Player 2's range is empty.");
-    expect(errorOf(input([hand("AsAh"), range("AsAd, AhAc")]))).toBe("Player 2's range has no hand left after the cards in use.");
+    expect(errorOf(input([hand("AsAh"), range("")]))).toEqual({ code: "range-empty", player: 1 });
+    expect(errorOf(input([hand("AsAh"), range("AsAd, AhAc")]))).toEqual({ code: "range-blocked", player: 1 });
   });
 
   it("rejects ranges that cannot all be dealt at once", () => {
-    expect(errorOf(input([range("AA"), range("AA"), range("AA")]))).toBe("These ranges cannot be dealt together: they need the same cards.");
+    expect(errorOf(input([range("AA"), range("AA"), range("AA")]))).toEqual({ code: "cannot-deal" });
   });
 });

@@ -11,13 +11,13 @@ import { type ActionId, type ChartKey, chartHref } from "./model";
 import { buildPlayerTypeChart, type PlayerType, type PlayerTypeFile, playerTypeErrors } from "./player-types";
 import {
   buildPushFoldChart,
-  describePushFold,
   PUSH_FOLD_DEPTHS,
   type PushFoldChart,
   type PushFoldFiles,
   type PushFoldKey,
   type PushFoldSeries,
   pushFoldEntry,
+  pushFoldFileLocation,
   validatePushFoldFiles,
 } from "./push-fold";
 
@@ -69,7 +69,7 @@ const pushFoldCache = new Map<string, PushFoldChart>();
 
 /** The repo Push/fold chart for a key from `pushFoldKeys()`. */
 export function getPushFoldChart(key: PushFoldKey): PushFoldChart {
-  const id = describePushFold(key, "en");
+  const id = pushFoldFileLocation(key);
   let chart = pushFoldCache.get(id);
   if (!chart) {
     chart = buildPushFoldChart(key, pushFoldEntry(PUSH_FOLD_FILES, key));

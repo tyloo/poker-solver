@@ -5,10 +5,10 @@ import { ChartGrid } from "@/components/chart-grid";
 import { ChartPicker } from "@/components/chart-picker";
 import { Sheet } from "@/components/sheet";
 import { playerTypeChart } from "@/lib/charts/charts";
-import { type ChartSelection, chartKeyFor, DEFAULT_SELECTION, describeChart } from "@/lib/charts/model";
+import { type ChartSelection, chartKeyFor, DEFAULT_SELECTION } from "@/lib/charts/model";
 import type { PlayerType } from "@/lib/charts/player-types";
-import { COMBO_COUNT } from "@/lib/poker/combo";
-import type { Range } from "@/lib/poker/range";
+import { describeChart, describeSituation } from "@/lib/i18n/charts";
+import { type Range, rangeShare } from "@/lib/poker/range";
 import { textButton } from "./buttons";
 import { useI18n } from "./i18n-provider";
 
@@ -29,7 +29,7 @@ export function LoadRangeSheet({ onLoad, onClose, initial = DEFAULT_SELECTION }:
   const key = chartKeyFor(selection);
   const chart = playerTypeChart(source, key);
   // Player types have one Range set for every Stack tier, so their name drops the tier.
-  const name = source === "standard" ? describeChart(key, locale) : t.load.typeChart(t.charts.playerTypes[source], describeChart(key, locale).replace(/, [^,]+$/, ""));
+  const name = source === "standard" ? describeChart(key, locale) : t.load.typeChart(t.charts.playerTypes[source], describeSituation(key, locale));
 
   return (
     <Sheet title={t.load.title} onClose={onClose}>
@@ -75,7 +75,7 @@ export function LoadRangeSheet({ onLoad, onClose, initial = DEFAULT_SELECTION }:
                 <span aria-hidden="true" className="size-3.5 rounded-[3px]" style={{ background: `var(--color-${action.colour})` }} />
                 {t.actions[action.name]}
               </span>
-              <span className="font-normal text-dust">{t.common.ofHands(action.range.reduce((sum, weight) => sum + weight, 0) / COMBO_COUNT)}</span>
+              <span className="font-normal text-dust">{t.common.ofHands(rangeShare(action.range))}</span>
             </button>
           ))}
       </div>

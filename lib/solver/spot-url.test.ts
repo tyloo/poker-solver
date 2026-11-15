@@ -98,7 +98,7 @@ describe("solverHref", () => {
 
   it("carries a Spot from the Advisor: line, board, amounts in bb, Ranges, sizes and the hero's hand", () => {
     const oop = parseRange("QQ+, AKs");
-    if (!oop.ok) throw new Error(oop.error);
+    if (!oop.ok) throw new Error(JSON.stringify(oop.error));
     const href = solverHref({
       betSizes: [0.33, 0.75],
       board: cards("Ks7d2h9c"),

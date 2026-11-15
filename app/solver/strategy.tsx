@@ -8,9 +8,11 @@ import { PlayingCard } from "@/components/playing-card";
 import { RangeGrid } from "@/components/range-grid";
 import type { Locale } from "@/lib/i18n/locale";
 import { messages } from "@/lib/i18n/messages";
+import { actionLabel, solverErrorText, stepLabel } from "@/lib/i18n/solver";
 import { CARD_COUNT, cardFromId } from "@/lib/poker/card";
 import { HAND_CLASS_COUNT, HAND_CLASS_NAMES, type HandClassId, handClassCombos } from "@/lib/poker/combo";
-import { actionColours, actionLabel, actionShares, formatChips, type StepSource, stepLabel } from "@/lib/solver/display";
+import { actionColours, actionShares, formatChips, type StepSource } from "@/lib/solver/display";
+import { solverErrorOf } from "@/lib/solver/errors";
 import type { NodeView } from "@/lib/solver/solver";
 import type { Player } from "@/lib/solver/spot";
 import { TREE_PATH_PARAM, treePathCodec } from "@/lib/solver/spot-url";
@@ -42,10 +44,10 @@ const slim = ({ kind, player, actions, cards, board }: NodeView): StepSource => 
  * The path and the selected Hand class live in the URL; a path the tree does not have falls back to the root.
  */
 export function Strategy({ query, players, version, heroClass }: Props) {
-  const { locale, t: messages } = useI18n();
-  const t = messages.strategy;
-  const percent = t.share;
-  const combos = t.combosValue;
+  const { locale, t } = useI18n();
+  const text = t.strategy;
+  const percent = text.share;
+  const combos = text.combosValue;
   const [path, setPath] = useUrlState(TREE_PATH_PARAM, treePathCodec, "push");
   const [selected, setSelected] = useUrlState(HAND_CLASS_PARAM, codecs.handClass(heroClass));
   const [view, setView] = useState<{ key: string; node: NodeView } | null>(null);
@@ -70,7 +72,7 @@ export function Strategy({ query, players, version, heroClass }: Props) {
       (reason: unknown) => {
         if (!live) return;
         if (path.length > 0) setUrlParams({ [TREE_PATH_PARAM]: null });
-        else setError(reason instanceof Error ? reason.message : String(reason));
+        else setError(solverErrorText(solverErrorOf(reason), players, locale));
       },
     );
     return () => {
@@ -112,21 +114,21 @@ export function Strategy({ query, players, version, heroClass }: Props) {
 
   const describe = (cls: HandClassId) => {
     const name = HAND_CLASS_NAMES[cls];
-    if (!inRange(cls)) return t.notInRange(name);
-    return acting ? `${name}: ${classStrategy(cls)}` : t.classCombos(name, classes?.combos[cls] ?? 0);
+    if (!inRange(cls)) return text.notInRange(name);
+    return acting ? `${name}: ${classStrategy(cls)}` : text.classCombos(name, classes?.combos[cls] ?? 0);
   };
 
-  const status = error ?? (loading ? t.reading : "");
+  const status = error ?? (loading ? text.reading : "");
 
   return (
     <section aria-labelledby="strategy-heading" className="mt-8">
       <h2 id="strategy-heading" className="m-0 mb-3 font-bold font-display text-3xl leading-none">
-        {t.heading}
+        {text.heading}
       </h2>
 
-      <nav aria-label={t.path}>
+      <nav aria-label={text.path}>
         <ol className="m-0 mb-3 flex list-none flex-wrap items-center gap-x-1 gap-y-0 p-0">
-          {[{ index: -1, label: t.start }, ...steps].map((step, i) => {
+          {[{ index: -1, label: text.start }, ...steps].map((step, i) => {
             const last = i === steps.length;
             return (
               <li key={i} className="flex items-center gap-1">
@@ -156,7 +158,7 @@ export function Strategy({ query, players, version, heroClass }: Props) {
 
       {node && (
         <div className={`flex flex-col gap-4 ${loading ? "opacity-60" : ""}`}>
-          <ul aria-label={messages.common.board} className="m-0 flex list-none gap-2 p-0">
+          <ul aria-label={t.common.board} className="m-0 flex list-none gap-2 p-0">
             {node.board.map((card) => (
               <li key={card}>
                 <PlayingCard card={cardFromId(card)} size="sm" />
@@ -166,7 +168,7 @@ export function Strategy({ query, players, version, heroClass }: Props) {
           <p className="m-0 font-bold text-xl">{nodeHeading(node, players, locale)}</p>
 
           {node.kind === "action" && node.player !== null && (
-            <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-label={t.actionsOf(players[node.player])}>
+            <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-label={text.actionsOf(players[node.player])}>
               {node.actions.map((action, a) => (
                 <li key={a}>
                   <button
@@ -188,13 +190,13 @@ export function Strategy({ query, players, version, heroClass }: Props) {
           {node.kind === "chance" && (
             <div>
               <button type="button" onClick={() => setPicking(true)} className={primaryButton}>
-                {t.pickCard(node.board.length === 3)}
+                {text.pickCard(node.board.length === 3)}
               </button>
             </div>
           )}
 
           <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className="mb-1.5 p-0 text-dust">{t.rangeShown}</legend>
+            <legend className="mb-1.5 p-0 text-dust">{text.rangeShown}</legend>
             <div className="flex gap-1">
               {([0, 1] as const).map((player) => (
                 <button
@@ -204,14 +206,14 @@ export function Strategy({ query, players, version, heroClass }: Props) {
                   onClick={() => setViewer({ key: pathKey, player })}
                   className="h-11 flex-1 rounded-xl bg-booth font-bold font-display text-lg leading-none focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-2 aria-pressed:bg-chalk aria-pressed:text-night"
                 >
-                  {messages.solver.side(players[player], player)}
+                  {t.solver.side(players[player], player)}
                 </button>
               ))}
             </div>
           </fieldset>
 
           <RangeGrid
-            label={acting ? t.strategyOf(players[shown]) : t.rangeHere(players[shown])}
+            label={acting ? text.strategyOf(players[shown]) : text.rangeHere(players[shown])}
             segments={segments}
             describe={describe}
             content={(cls) => <span className={inRange(cls) ? "" : "opacity-35"}>{HAND_CLASS_NAMES[cls]}</span>}
@@ -221,7 +223,7 @@ export function Strategy({ query, players, version, heroClass }: Props) {
 
           {range && (
             <p className="m-0 text-dust">
-              {t.totals(
+              {text.totals(
                 players[shown],
                 range.total.combos,
                 Number.isNaN(range.total.ev) ? "–" : formatChips(range.total.ev, locale),
@@ -232,7 +234,7 @@ export function Strategy({ query, players, version, heroClass }: Props) {
 
           <div aria-live="polite" className="min-h-[4.5em] rounded-2xl bg-booth p-4">
             {selected === null || !classes ? (
-              <p className="m-0 text-dust">{t.tapHand}</p>
+              <p className="m-0 text-dust">{text.tapHand}</p>
             ) : (
               <>
                 <p className="m-0 font-bold font-display text-2xl leading-none">{HAND_CLASS_NAMES[selected]}</p>
@@ -240,9 +242,9 @@ export function Strategy({ query, players, version, heroClass }: Props) {
                   <>
                     <dl className="m-0 mt-2 grid grid-cols-3 gap-2">
                       {[
-                        { label: t.combos, value: combos(classes.combos[selected]) },
-                        { label: t.ev, value: Number.isNaN(classes.ev[selected]) ? "–" : formatChips(classes.ev[selected], locale) },
-                        { label: t.equity, value: Number.isNaN(classes.equity[selected]) ? "–" : percent(classes.equity[selected]) },
+                        { label: text.combos, value: combos(classes.combos[selected]) },
+                        { label: text.ev, value: Number.isNaN(classes.ev[selected]) ? "–" : formatChips(classes.ev[selected], locale) },
+                        { label: text.equity, value: Number.isNaN(classes.equity[selected]) ? "–" : percent(classes.equity[selected]) },
                       ].map((item) => (
                         <div key={item.label}>
                           <dt className="text-dust text-sm">{item.label}</dt>
@@ -253,7 +255,7 @@ export function Strategy({ query, players, version, heroClass }: Props) {
                     {acting && <p className="mt-2 mb-0">{classStrategy(selected)}</p>}
                   </>
                 ) : (
-                  <p className="mt-2 mb-0 text-dust">{t.notInRangeHere(players[shown])}</p>
+                  <p className="mt-2 mb-0 text-dust">{text.notInRangeHere(players[shown])}</p>
                 )}
               </>
             )}
@@ -263,7 +265,7 @@ export function Strategy({ query, players, version, heroClass }: Props) {
 
       {picking && node?.kind === "chance" && (
         <CardKeypadSheet
-          title={node.board.length === 3 ? t.turnCard : t.riverCard}
+          title={node.board.length === 3 ? text.turnCard : text.riverCard}
           value={[]}
           max={1}
           unavailable={Array.from({ length: CARD_COUNT }, (_, card) => card).filter((card) => !node.cards.includes(card))}

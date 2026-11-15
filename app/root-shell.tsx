@@ -4,15 +4,15 @@ import { I18nProvider } from "@/components/i18n-provider";
 import { ServiceWorker } from "@/components/service-worker";
 import { TabBar } from "@/components/tab-bar";
 import { atkinson, bigShoulders } from "@/lib/fonts";
-import { FRENCH_START_SCRIPT, type Locale, localeHref } from "@/lib/i18n/locale";
+import { FRENCH_START_SCRIPT, LANGUAGE_SWITCH_SCRIPT, type Locale, localeHref } from "@/lib/i18n/locale";
 import { messages } from "@/lib/i18n/messages";
+import type { Tool } from "@/lib/tools";
 import "./globals.css";
 
 /** Site metadata of a language; each root layout (`app/(en)`, `app/fr`) exports it. */
 export function rootMetadata(locale: Locale): Metadata {
   const { meta } = messages(locale);
   return {
-    alternates: { languages: { en: "/", fr: "/fr" } },
     appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: meta.shortName },
     description: meta.description,
     manifest: localeHref(locale, "/manifest.webmanifest"),
@@ -21,7 +21,7 @@ export function rootMetadata(locale: Locale): Metadata {
 }
 
 /** A tool page's title in a language (the Advisor at `/` keeps the site title). */
-export const toolMetadata = (locale: Locale, tool: "equity" | "ranges" | "solver" | "glossary"): Metadata => ({ title: messages(locale).tools[tool].title });
+export const toolMetadata = (locale: Locale, tool: Exclude<Tool, "advisor">): Metadata => ({ title: messages(locale).tools[tool].title });
 
 export const rootViewport: Viewport = {
   themeColor: "#1b1527",
@@ -38,6 +38,9 @@ export function RootShell({ locale, children }: { locale: Locale; children: Reac
           // biome-ignore lint/security/noDangerouslySetInnerHtml: a constant script (lib/i18n/locale.ts), no user input.
           <script dangerouslySetInnerHTML={{ __html: FRENCH_START_SCRIPT }} />
         )}
+        {/* Lets the language link keep the setup when tapped before hydration. */}
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: a constant script (lib/i18n/locale.ts), no user input. */}
+        <script dangerouslySetInnerHTML={{ __html: LANGUAGE_SWITCH_SCRIPT }} />
       </head>
       <body className="bg-night font-sans text-[1.0625rem] text-chalk leading-[1.5] antialiased">
         <I18nProvider locale={locale}>

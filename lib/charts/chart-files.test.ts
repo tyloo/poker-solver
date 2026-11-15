@@ -35,10 +35,10 @@ describe("validateChartFiles", () => {
     expect(validateChartFiles(emptyFiles())).toEqual([]);
   });
 
-  it("names the Chart and action of an invalid range string", () => {
+  it("names the file entry and action of an invalid range string", () => {
     const files = emptyFiles();
     files.open.tiers["25bb"].CO = { raise: "22+, AKx" };
-    expect(validateChartFiles(files)).toEqual(['CO open, 25bb: raise: Invalid entry "AKx"']);
+    expect(validateChartFiles(files)).toEqual(['content/charts/open.ts, tiers["25bb"].CO: raise: Invalid entry "AKx"']);
   });
 
   it("rejects overlaps and frequencies summing above 1", () => {
@@ -46,11 +46,11 @@ describe("validateChartFiles", () => {
     files["vs-open"].tiers["40bb+"].late.BB = { call: "AJo:0.5, 99+", raise: "AJo:0.7, QQ+" };
     files["vs-limpers"].tiers["15-20bb"]["2+"].SB = { limp: "", raise: "ATs+, AKs" };
     expect(validateChartFiles(files)).toEqual([
-      "BB vs late open, 40bb+: AA: frequencies sum to 2 (raise 1, call 1)",
-      "BB vs late open, 40bb+: KK: frequencies sum to 2 (raise 1, call 1)",
-      "BB vs late open, 40bb+: QQ: frequencies sum to 2 (raise 1, call 1)",
-      "BB vs late open, 40bb+: AJo: frequencies sum to 1.2 (raise 0.7, call 0.5)",
-      'SB vs 2+ limpers, 15–20bb: raise: AKs appears twice: "AKs" overlaps an earlier entry',
+      'content/charts/vs-open.ts, tiers["40bb+"].late.BB: AA: frequencies sum to 2 (raise 1, call 1)',
+      'content/charts/vs-open.ts, tiers["40bb+"].late.BB: KK: frequencies sum to 2 (raise 1, call 1)',
+      'content/charts/vs-open.ts, tiers["40bb+"].late.BB: QQ: frequencies sum to 2 (raise 1, call 1)',
+      'content/charts/vs-open.ts, tiers["40bb+"].late.BB: AJo: frequencies sum to 1.2 (raise 0.7, call 0.5)',
+      'content/charts/vs-limpers.ts, tiers["15-20bb"]["2+"].SB: raise: AKs appears twice: "AKs" overlaps an earlier entry',
     ]);
   });
 
@@ -58,7 +58,10 @@ describe("validateChartFiles", () => {
     const files = emptyFiles();
     delete (files["vs-open"].tiers["25bb"].middle as Record<string, unknown>).HJ;
     (files.open.tiers["40bb+"].CO as Record<string, string>).call = "AA";
-    expect(validateChartFiles(files)).toEqual(['CO open, 40bb+: unexpected action "call"', "HJ vs middle open, 25bb: missing Chart"]);
+    expect(validateChartFiles(files)).toEqual([
+      'content/charts/open.ts, tiers["40bb+"].CO: unexpected action "call"',
+      'content/charts/vs-open.ts, tiers["25bb"].middle.HJ: missing Chart',
+    ]);
   });
 });
 

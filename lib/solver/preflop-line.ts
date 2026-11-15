@@ -1,7 +1,5 @@
 import { getChart } from "@/lib/charts/charts";
 import { type ActionId, type ChartKey, heroPositions, openerGroupOf } from "@/lib/charts/model";
-import type { Locale } from "@/lib/i18n/locale";
-import { messages } from "@/lib/i18n/messages";
 import type { BlindLevel } from "@/lib/poker/blinds";
 import type { Range } from "@/lib/poker/range";
 import { OPEN_SIZE_BB, POSITIONS, type Position, postflopOrder, preflopOrder, type StackTier, stackTierFor } from "@/lib/poker/table";
@@ -22,8 +20,11 @@ export const MIN_DEPTH = 15;
 /** Blinds where the SB is half the BB, as at every level but level 1. */
 const HALF_SB: BlindLevel = { bb: 2, sb: 1 };
 
+/** Why a Preflop line has no Spot: too shallow for raising Charts (below MIN_DEPTH), or Positions in the wrong order. */
+export type LineError = "below-min" | "caller-after" | "opener-before-bb";
+
 /** Where a Preflop line leads, in bb. Players and Ranges are [OOP, IP]. */
-export type LineSpot = { ok: true; tier: StackTier; pot: number; stack: number; players: [Position, Position]; ranges: [Range, Range] } | { ok: false; error: string };
+export type LineSpot = { ok: true; tier: StackTier; pot: number; stack: number; players: [Position, Position]; ranges: [Range, Range] } | { ok: false; error: LineError };
 
 /** Positions that can call an open from `opener` (they act after it and have a Vs open Chart). */
 export function callerPositions(opener: OpenerPosition): Position[] {
@@ -50,11 +51,10 @@ function chartRange(key: ChartKey, action: ActionId): Range {
 }
 
 /** Fills both Ranges from the Charts and works out the pot and effective stack after the line, with the real blinds of `level`. */
-export function lineSpot(line: PreflopLine, depth: number, level: BlindLevel = HALF_SB, locale: Locale = "en"): LineSpot {
-  const t = messages(locale).solver;
+export function lineSpot(line: PreflopLine, depth: number, level: BlindLevel = HALF_SB): LineSpot {
   const tier = stackTierFor(depth);
-  if (tier === "push-fold") return { error: t.belowMin(MIN_DEPTH), ok: false };
-  if (!isValidLine(line)) return { error: t.callerAfter, ok: false };
+  if (tier === "push-fold") return { error: "below-min", ok: false };
+  if (!isValidLine(line)) return { error: "caller-after", ok: false };
   const players = linePlayers(line);
 
   if (line.kind === "limp") {
@@ -66,18 +66,10 @@ export function lineSpot(line: PreflopLine, depth: number, level: BlindLevel = H
   const { opener, caller } = line;
   const size = OPEN_SIZE_BB[tier];
   const group = openerGroupOf(opener);
-  if (!group) return { error: t.openerBeforeBb, ok: false };
+  if (!group) return { error: "opener-before-bb", ok: false };
   const openRange = chartRange({ position: opener, situation: "open", tier }, "raise");
   const callRange = chartRange({ opener: group, position: caller, situation: "vs-open", tier }, "call");
   const dead = (opener === "SB" || caller === "SB" ? 0 : level.sb / level.bb) + (caller === "BB" ? 0 : 1);
   const ranges: [Range, Range] = players[0] === opener ? [openRange, callRange] : [callRange, openRange];
   return { ok: true, players, pot: 2 * size + dead, ranges, stack: depth - size, tier };
-}
-
-/** "CO opens 2.5bb, BB calls, 40bb". */
-export function describeLine(line: PreflopLine, depth: number, locale: Locale): string {
-  const t = messages(locale).solver;
-  if (line.kind === "limp") return t.limpLine(depth);
-  const tier = stackTierFor(depth);
-  return t.openLine(line.opener, tier === "push-fold" ? null : OPEN_SIZE_BB[tier], line.caller, depth);
 }

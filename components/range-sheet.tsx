@@ -4,8 +4,9 @@ import { type ReactNode, useRef, useState } from "react";
 import { formatPercent } from "@/lib/format";
 import type { Locale } from "@/lib/i18n/locale";
 import { messages } from "@/lib/i18n/messages";
-import { COMBO_COUNT, HAND_CLASS_NAMES } from "@/lib/poker/combo";
-import { createRange, formatRange, handClassWeights, parseRange, type Range, setHandClassWeight } from "@/lib/poker/range";
+import { rangeErrorText } from "@/lib/i18n/range";
+import { HAND_CLASS_NAMES } from "@/lib/poker/combo";
+import { createRange, formatRange, handClassWeights, parseRange, type Range, rangeCombos, rangeShare, setHandClassWeight } from "@/lib/poker/range";
 import { primaryButton, textButton } from "./buttons";
 import { useI18n } from "./i18n-provider";
 import { RangeGrid } from "./range-grid";
@@ -24,10 +25,8 @@ type Props = {
   load?: (apply: (range: Range) => void) => ReactNode;
 };
 
-export function rangeSummary(range: Range, locale: Locale): string {
-  const combos = range.reduce((sum, weight) => sum + weight, 0);
-  return messages(locale).rangeSheet.summary(combos, combos / COMBO_COUNT);
-}
+/** "18 combos, 1.4% of hands". */
+export const rangeSummary = (range: Range, locale: Locale): string => messages(locale).rangeSheet.summary(rangeCombos(range), rangeShare(range));
 
 /** Edits a Range on the 13×13 grid or as a range string; nothing changes until Done. */
 export function RangeSheet({ title, value, onDone, onClose, load }: Props) {
@@ -90,11 +89,11 @@ export function RangeSheet({ title, value, onDone, onClose, load }: Props) {
           aria-describedby={error ? "range-error" : undefined}
           onChange={(event) => {
             setText(event.target.value);
-            const parsed = parseRange(event.target.value, locale);
+            const parsed = parseRange(event.target.value);
             if (parsed.ok) {
               setRange(parsed.range);
               setError(null);
-            } else setError(parsed.error);
+            } else setError(rangeErrorText(parsed.error, locale));
           }}
           className="block w-full resize-none rounded-xl border-2 border-night bg-night px-3 py-2 text-chalk focus-visible:border-chalk focus-visible:outline-none aria-invalid:border-raise"
         />

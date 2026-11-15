@@ -10,7 +10,7 @@ export function board(text: string): CardId[] {
 
 export function range(text: string): Range {
   const result = parseRange(text);
-  if (!result.ok) throw new Error(result.error);
+  if (!result.ok) throw new Error(JSON.stringify(result.error));
   return result.range;
 }
 

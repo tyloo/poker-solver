@@ -4,14 +4,13 @@ import {
   browseParams,
   browseSeries,
   callerPositions,
-  depthSpans,
-  describePushFold,
   largestDepths,
   PUSH_FOLD_DEPTHS,
   PUSH_POSITIONS,
   type PushChartFile,
   type PushFoldFiles,
   parseBrowseParams,
+  playedSpans,
   pushersFacing,
   pushFoldActions,
   pushFoldEntry,
@@ -88,12 +87,6 @@ describe("Push/fold actions and names", () => {
     ]);
   });
 
-  it("names series and Charts in plain words", () => {
-    expect(describePushFold({ position: "CO", situation: "push" }, "en")).toBe("CO push");
-    expect(describePushFold({ depth: 8, position: "BB", pusher: "late", situation: "vs-push" }, "en")).toBe("BB vs late push, 8bb");
-    expect(describePushFold({ depth: 8, position: "BB", pusher: "late", situation: "vs-push" }, "fr")).toBe("BB face à un push en fin de parole, 8bb");
-  });
-
   it("points at the file entry", () => {
     expect(pushFoldFileLocation({ depth: 8, position: "UTG+1", situation: "push" })).toBe('content/charts/push.ts, depths[8]["UTG+1"]');
     expect(pushFoldFileLocation({ depth: 12, position: "BB", pusher: "late", situation: "vs-push" })).toBe("content/charts/vs-push.ts, depths[12].late.BB");
@@ -107,16 +100,20 @@ describe("validatePushFoldFiles", () => {
     expect(pushFoldEntry(files, { depth: 3, position: "SB", situation: "push" })).toEqual({ push: "22+, A2s+" });
   });
 
-  it("names the Chart of each problem", () => {
+  it("names the file entry of each problem", () => {
     const files = filesWith("22+", "QQ+");
     const broken = { ...files, push: { depths: { ...files.push.depths, 7: { ...files.push.depths[7], CO: { push: "AKx" } } } } } as PushFoldFiles;
-    expect(validatePushFoldFiles(broken)).toEqual(['CO push, 7bb: push: Invalid entry "AKx"']);
+    expect(validatePushFoldFiles(broken)).toEqual(['content/charts/push.ts, depths[7].CO: push: Invalid entry "AKx"']);
     const missing = { ...files, "vs-push": { depths: { ...files["vs-push"].depths, 2: { ...files["vs-push"].depths[2], late: {} } } } } as PushFoldFiles;
-    expect(validatePushFoldFiles(missing)).toEqual(["BTN vs late push, 2bb: missing Chart", "SB vs late push, 2bb: missing Chart", "BB vs late push, 2bb: missing Chart"]);
+    expect(validatePushFoldFiles(missing)).toEqual([
+      "content/charts/vs-push.ts, depths[2].late.BTN: missing Chart",
+      "content/charts/vs-push.ts, depths[2].late.SB: missing Chart",
+      "content/charts/vs-push.ts, depths[2].late.BB: missing Chart",
+    ]);
   });
 });
 
-describe("largestDepths and depthSpans", () => {
+describe("largestDepths and playedSpans", () => {
   const byDepth = (play: (depth: number) => number) => PUSH_FOLD_DEPTHS.map((depth) => new Float64Array(HAND_CLASS_COUNT).fill(play(depth)));
 
   it("finds the largest depth played at least half the time", () => {
@@ -126,42 +123,38 @@ describe("largestDepths and depthSpans", () => {
     expect(largestDepths(byDepth((depth) => (depth === 12 ? 0.5 : depth < 12 ? 1 : 0)))[0]).toBe(12);
   });
 
-  it("lists the depths played, gaps included", () => {
+  it("lists the depths played as spans, gaps included", () => {
     expect(
-      depthSpans(
+      playedSpans(
         byDepth((depth) => (depth <= 11 ? 1 : 0)),
         0,
-        "en",
       ),
-    ).toBe("1–11bb");
+    ).toEqual([[1, 11]]);
     expect(
-      depthSpans(
+      playedSpans(
         byDepth((depth) => (depth <= 2 || (depth >= 5 && depth <= 7) ? 1 : 0)),
         0,
-        "en",
       ),
-    ).toBe("1–2bb and 5–7bb");
+    ).toEqual([
+      [1, 2],
+      [5, 7],
+    ]);
     expect(
-      depthSpans(
+      playedSpans(
         byDepth((depth) => (depth === 1 || depth === 4 || depth >= 9 ? 1 : 0)),
         0,
-        "en",
       ),
-    ).toBe("1bb, 4bb and 9–15bb");
+    ).toEqual([
+      [1, 1],
+      [4, 4],
+      [9, 15],
+    ]);
     expect(
-      depthSpans(
-        byDepth((depth) => (depth === 1 || depth === 4 || depth >= 9 ? 1 : 0)),
-        0,
-        "fr",
-      ),
-    ).toBe("1bb, 4bb et 9–15bb");
-    expect(
-      depthSpans(
+      playedSpans(
         byDepth(() => 0),
         0,
-        "en",
       ),
-    ).toBe("");
+    ).toEqual([]);
   });
 });
 

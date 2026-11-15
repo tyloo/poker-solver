@@ -1,5 +1,4 @@
-import type { Locale } from "@/lib/i18n/locale";
-import { messages } from "@/lib/i18n/messages";
+import type { SolverError } from "./errors";
 import { createHandSet } from "./evaluation";
 import { type Spot, validateSpot } from "./spot";
 import { countTree, type TreeStats } from "./tree";
@@ -19,12 +18,12 @@ export type SpotEstimate = TreeStats & {
   fits: boolean;
 };
 
-export type EstimateResult = { ok: true; estimate: SpotEstimate } | { ok: false; error: string };
+export type EstimateResult = { ok: true; estimate: SpotEstimate } | { ok: false; error: SolverError };
 
 /** Sizes the solve before anything is allocated. */
 export function estimateSpot(spot: Spot, budgetBytes = MEMORY_BUDGET_BYTES): EstimateResult {
-  const error = validateSpot(spot);
-  if (error) return { error, ok: false };
+  const problem = validateSpot(spot);
+  if (problem) return { error: { code: "spot", problem }, ok: false };
   const stats = countTree(spot);
   const combos: [number, number] = [createHandSet(spot.ranges[0], spot.board).combos.length, createHandSet(spot.ranges[1], spot.board).combos.length];
   const storage = (stats.actionSlots[0] * combos[0] + stats.actionSlots[1] * combos[1]) * 2 * Float32Array.BYTES_PER_ELEMENT;
@@ -33,12 +32,11 @@ export function estimateSpot(spot: Spot, budgetBytes = MEMORY_BUDGET_BYTES): Est
   return { estimate: { ...stats, budgetBytes, combos, fits: memoryBytes <= budgetBytes, memoryBytes }, ok: true };
 }
 
-export const formatMegabytes = (bytes: number, locale: Locale) => messages(locale).solver.megabytes(bytes);
-
 /** Why a Spot is refused, with only the fixes its setup offers. The engine and the Solver tool both show it. */
-export function overBudgetMessage(estimate: SpotEstimate, spot: Pick<Spot, "betSizes" | "board">, locale: Locale): string {
-  return messages(locale).solver.overBudget(formatMegabytes(estimate.memoryBytes, locale), formatMegabytes(estimate.budgetBytes, locale), {
-    betSize: spot.betSizes.length > 1,
-    laterStreet: spot.board.length < 5,
-  });
-}
+export const overBudget = (estimate: SpotEstimate, spot: Pick<Spot, "betSizes" | "board">): SolverError => ({
+  betSize: spot.betSizes.length > 1,
+  budgetBytes: estimate.budgetBytes,
+  code: "over-budget",
+  laterStreet: spot.board.length < 5,
+  memoryBytes: estimate.memoryBytes,
+});

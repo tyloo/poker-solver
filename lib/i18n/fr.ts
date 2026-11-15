@@ -38,6 +38,17 @@ export const fr: Messages = {
     glossary: { title: "Lexique", lede: "Les termes et abréviations de poker utilisés dans l’app, expliqués simplement." },
   },
   notFound: { message: "Cette page n’existe pas." },
+  install: {
+    title: "Ajouter à l’écran d’accueil",
+    lede: `Installe l’app${NBSP}: elle s’ouvre en plein écran et marche hors ligne, même sans réseau à la table.`,
+    install: "Installer",
+    later: "Plus tard",
+    share: "Partager",
+    iosShare: { before: "Touche le bouton Partager", after: " dans Safari." },
+    iosAdd: `Choisis ${quote("Sur l’écran d’accueil")}.`,
+    androidMenu: "Ouvre le menu du navigateur ⋮.",
+    androidAdd: `Choisis ${quote("Installer l’application")} ou ${quote("Ajouter à l’écran d’accueil")}.`,
+  },
   common: {
     done: "OK",
     clear: "Effacer",

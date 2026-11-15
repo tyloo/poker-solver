@@ -2,11 +2,13 @@ import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { I18nProvider } from "@/components/i18n-provider";
+import { InstallPrompt } from "@/components/install-prompt";
 import { ServiceWorker } from "@/components/service-worker";
 import { TabBar } from "@/components/tab-bar";
 import { atkinson, bigShoulders } from "@/lib/fonts";
 import { FRENCH_START_SCRIPT, LANGUAGE_SWITCH_SCRIPT, type Locale, localeHref } from "@/lib/i18n/locale";
 import { messages } from "@/lib/i18n/messages";
+import { INSTALL_EVENT_SCRIPT } from "@/lib/install-prompt";
 import type { Tool } from "@/lib/tools";
 import "./globals.css";
 
@@ -42,6 +44,9 @@ export function RootShell({ locale, children }: { locale: Locale; children: Reac
         {/* Lets the language link keep the setup when tapped before hydration. */}
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: a constant script (lib/i18n/locale.ts), no user input. */}
         <script dangerouslySetInnerHTML={{ __html: LANGUAGE_SWITCH_SCRIPT }} />
+        {/* Keeps Chrome's install offer if it comes before hydration. */}
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: a constant script (lib/install-prompt.ts), no user input. */}
+        <script dangerouslySetInnerHTML={{ __html: INSTALL_EVENT_SCRIPT }} />
       </head>
       <body className="bg-night font-sans text-[1.0625rem] text-chalk leading-[1.5] antialiased">
         <I18nProvider locale={locale}>
@@ -49,6 +54,7 @@ export function RootShell({ locale, children }: { locale: Locale; children: Reac
             {children}
           </main>
           <TabBar />
+          <InstallPrompt />
         </I18nProvider>
         <ServiceWorker />
         <Analytics />

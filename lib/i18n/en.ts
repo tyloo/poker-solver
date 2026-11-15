@@ -32,6 +32,17 @@ export const en = {
     glossary: { title: "Glossary", lede: "The poker terms and abbreviations the app uses, in plain English." },
   } satisfies Record<Tool, { title: string; lede: string }>,
   notFound: { message: "This page does not exist." },
+  install: {
+    title: "Add to your home screen",
+    lede: "Install the app: it opens full screen and works offline, even with no signal at the table.",
+    install: "Install",
+    later: "Not now",
+    share: "Share",
+    iosShare: { before: "Tap the Share button", after: " in Safari." },
+    iosAdd: "Choose “Add to Home Screen”.",
+    androidMenu: "Open the browser menu ⋮.",
+    androidAdd: "Choose “Install app” or “Add to Home screen”.",
+  },
   common: {
     done: "Done",
     clear: "Clear",

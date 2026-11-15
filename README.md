@@ -1,6 +1,6 @@
 # Poker Solver
 
-A mobile-first study and quick-check tool for No-Limit Texas Hold'em tournaments, built for live 8-max games. It runs entirely in the browser, installs as an app, and works offline. There's no backend, no account, and nothing is stored on the device.
+A mobile-first study and quick-check tool for No-Limit Texas Hold'em tournaments, built for live 8-max games. It runs entirely in the browser, installs as an app, and works offline. There's no backend and no account. Your setup lives in the URL, not on the device.
 
 The app is in English and French.
 
@@ -11,6 +11,8 @@ The app is in English and French.
 - **Ranges**: browse the preflop Charts by Situation, Position and Stack tier on a 13×13 grid, plus push/fold grids that show the largest stack at which each hand still pushes or calls. A scratchpad lets you paint frequencies and copy the range string.
 - **Solver**: a heads-up postflop GTO solver (discounted CFR) for turn and river Spots, and small flop Spots. Pick a preflop line to fill both ranges from the Charts, then browse the strategy, the game tree, and combos, EV and equity per hand.
 - **Glossary**: plain explanations of every poker term the app uses.
+
+On a phone browser, a sheet invites visitors to add the app to their home screen: a one-tap install on Android Chrome, step-by-step instructions on iOS and other Android browsers. Dismissing it stores a single flag on the device so it doesn't come back; that's the only thing the app stores.
 
 The heavy maths (equity, solving) runs in Web Workers, so the page stays responsive on a phone.
 

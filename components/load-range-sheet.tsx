@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { BottomSheet } from "@/components/bottom-sheet";
 import { ChartGrid, rangeShare } from "@/components/chart-grid";
 import { ChartPicker } from "@/components/chart-picker";
+import { Sheet } from "@/components/sheet";
 import { playerTypeChart } from "@/lib/charts/charts";
 import { type ChartSelection, chartKeyFor, DEFAULT_SELECTION, describeChart } from "@/lib/charts/model";
 import { PLAYER_TYPE_LABELS, type PlayerType } from "@/lib/charts/player-types";
@@ -31,7 +31,7 @@ export function LoadRangeSheet({ onLoad, onClose, initial = DEFAULT_SELECTION }:
   const name = source === "standard" ? describeChart(key) : `${PLAYER_TYPE_LABELS[source]} ${describeChart(key).replace(/, [^,]+$/, "")}`;
 
   return (
-    <BottomSheet title="Load a range" onClose={onClose}>
+    <Sheet title="Load a range" onClose={onClose}>
       <fieldset className="m-0 mb-4 min-w-0 border-0 p-0">
         <legend className="mb-1.5 p-0 text-dust">From</legend>
         <div className="flex gap-1">
@@ -80,7 +80,7 @@ export function LoadRangeSheet({ onLoad, onClose, initial = DEFAULT_SELECTION }:
             </button>
           ))}
       </div>
-    </BottomSheet>
+    </Sheet>
   );
 }
 

@@ -6,13 +6,13 @@ type Props = {
   title: string;
   /** Called on Escape or a tap outside the sheet; the parent closes it by unmounting it. */
   onClose: () => void;
-  /** Buttons shown next to the title. */
+  /** Buttons shown next to the title, e.g. Done. */
   actions?: ReactNode;
   children: ReactNode;
 };
 
 /** Bottom sheet on a modal <dialog>. It opens when mounted, so render it only while open. */
-export function BottomSheet({ title, onClose, actions, children }: Props) {
+export function Sheet({ title, onClose, actions, children }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
@@ -29,7 +29,8 @@ export function BottomSheet({ title, onClose, actions, children }: Props) {
       aria-labelledby={titleId}
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        // React bubbles a nested sheet's cancel up here; only the top sheet closes.
+        if (event.target === event.currentTarget) onClose();
       }}
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();

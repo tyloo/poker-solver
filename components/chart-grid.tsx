@@ -1,6 +1,6 @@
 "use client";
 
-import { HandGrid } from "@/components/hand-grid";
+import { RangeGrid } from "@/components/range-grid";
 import type { Chart } from "@/lib/charts/chart-files";
 import type { ActionColour } from "@/lib/charts/model";
 import { COMBO_COUNT, HAND_CLASS_NAMES, type HandClassId, handClassCombos } from "@/lib/poker/combo";
@@ -26,7 +26,7 @@ export function classFrequencies(actions: readonly { label: string; weights: Flo
 export function ChartGrid({ chart, selected, onSelect }: { chart: Chart; selected?: HandClassId | null; onSelect?: (cls: HandClassId) => void }) {
   const actions = chart.actions.map((action) => ({ ...action, weights: handClassWeights(action.range) }));
   return (
-    <HandGrid
+    <RangeGrid
       label={`${chart.title} chart`}
       segments={(cls) => actions.filter((action) => action.colour !== "fold").map((action) => ({ color: actionColor(action.colour), share: action.weights[cls] }))}
       describe={(cls) => `${HAND_CLASS_NAMES[cls]}: ${classFrequencies(actions, cls)}`}

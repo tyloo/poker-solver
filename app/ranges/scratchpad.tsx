@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { actionColor, classFrequencies } from "@/components/chart-grid";
-import { HandGrid } from "@/components/hand-grid";
+import { RangeGrid } from "@/components/range-grid";
 import { type Chart, chartFileLocation } from "@/lib/charts/chart-files";
 import type { ActionId } from "@/lib/charts/model";
 import { type Draft, draftFromStrings, draftSnippet, draftStrings, paintDraft } from "@/lib/charts/scratchpad";
@@ -128,7 +128,7 @@ export function Scratchpad({ chart, initial, onSync, onDone }: Props) {
       </fieldset>
 
       <div>
-        <HandGrid
+        <RangeGrid
           label="Scratchpad chart, tap or drag to paint"
           segments={(cls) => rows.filter((action) => action.colour !== "fold").map((action) => ({ color: actionColor(action.colour), share: action.weights[cls] }))}
           describe={(cls) => `${HAND_CLASS_NAMES[cls]}: ${classFrequencies(rows, cls)}`}

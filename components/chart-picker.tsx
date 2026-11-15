@@ -15,7 +15,7 @@ import { POSITIONS, type Position, STACK_TIER_LABELS, STACK_TIERS } from "@/lib/
 
 type Option<T> = { value: T; label: string; disabled?: boolean };
 
-function Segmented<T extends string>({
+export function Segmented<T extends string>({
   legend,
   options,
   value,

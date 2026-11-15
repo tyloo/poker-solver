@@ -40,6 +40,8 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
   if (request.method !== "GET" || url.origin !== self.location.origin) return;
+  // Vercel Web Analytics talks to the network directly; nothing to cache offline.
+  if (url.pathname.startsWith("/_vercel/")) return;
 
   if (url.pathname.startsWith("/_next/static/")) {
     event.respondWith(

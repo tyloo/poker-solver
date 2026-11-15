@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { I18nProvider } from "@/components/i18n-provider";
@@ -50,6 +51,7 @@ export function RootShell({ locale, children }: { locale: Locale; children: Reac
           <TabBar />
         </I18nProvider>
         <ServiceWorker />
+        <Analytics />
       </body>
     </html>
   );

@@ -50,6 +50,8 @@ The service worker only registers in production builds. To try the installable, 
 
 `pnpm build` produces a fully static site in `out/`. Host it anywhere that serves static files over HTTPS (Vercel, Netlify, GitHub Pages, Cloudflare Pages, …).
 
+Page views are counted with Vercel Web Analytics, which uses no cookies. It only reports when the site is deployed on Vercel with Web Analytics enabled for the project; elsewhere it does nothing.
+
 ## Editing the Charts
 
 Charts are TypeScript files in [`content/charts/`](content/charts), written as range strings with optional frequencies:
@@ -83,7 +85,7 @@ docs/adr/     Architecture decisions
 
 ## Tech
 
-Next.js 16 (App Router, static export, React Compiler), React 19, TypeScript, Tailwind CSS v4, Vitest and Biome. There are no runtime dependencies beyond Next.js and React. The solver is pure TypeScript, without WebAssembly; see [`docs/adr/0001-pure-typescript-solver.md`](docs/adr/0001-pure-typescript-solver.md).
+Next.js 16 (App Router, static export, React Compiler), React 19, TypeScript, Tailwind CSS v4, Vitest and Biome. The only runtime dependencies are Next.js, React and [Vercel Web Analytics](https://vercel.com/docs/analytics). The solver is pure TypeScript, without WebAssembly; see [`docs/adr/0001-pure-typescript-solver.md`](docs/adr/0001-pure-typescript-solver.md).
 
 ## Acknowledgements
 

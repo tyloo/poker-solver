@@ -32,7 +32,7 @@ export function Segmented<T extends string>({
             aria-pressed={option.value === value}
             disabled={option.disabled}
             onClick={() => onChange(option.value)}
-            className={`h-11 min-w-0 ${wrap ? "grow basis-[calc((100%-0.5rem)/3)]" : "flex-1"} rounded-xl bg-booth px-1 font-bold font-display text-lg leading-none transition-colors hover:enabled:text-chalk focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-2 disabled:opacity-35 aria-pressed:bg-chalk aria-pressed:text-night`}
+            className={`h-11 min-w-0 ${wrap ? "grow basis-[calc((100%-0.5rem)/3)]" : "flex-1"} rounded-xl bg-booth px-1 font-bold font-display text-lg leading-none transition-colors hover:enabled:not-aria-pressed:text-chalk focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-2 disabled:opacity-35 aria-pressed:bg-chalk aria-pressed:text-night`}
           >
             {option.label}
           </button>

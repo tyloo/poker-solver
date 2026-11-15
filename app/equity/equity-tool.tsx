@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { outlineButton, textButton } from "@/components/buttons";
 import { CardKeypadSheet } from "@/components/card-keypad-sheet";
 import { LoadRangeButton } from "@/components/load-range-sheet";
 import { PlayingCard } from "@/components/playing-card";
@@ -9,6 +10,7 @@ import type { EquityResult, PlayerEquity } from "@/lib/equity/engine";
 import { MAX_PLAYERS } from "@/lib/equity/engine";
 import { boardCodec, deadCodec, MAX_DEAD_CARDS, playersCodec, type SetupPlayer, toEquityInput } from "@/lib/equity/setup";
 import { type EquityRun, useEquity } from "@/lib/equity/use-equity";
+import { formatPercent } from "@/lib/format";
 import { type CardId, cardFromId } from "@/lib/poker/card";
 import { formatRange, parseRange } from "@/lib/poker/range";
 import { useUrlState } from "@/lib/url-state";
@@ -21,8 +23,7 @@ const KINDS = [
   { kind: "random", label: "Random" },
 ] as const;
 
-const textButton = "h-12 rounded-full px-4 font-bold text-dust underline decoration-2 underline-offset-4 hover:text-chalk focus-visible:outline-3 focus-visible:outline-chalk";
-const percent = (fraction: number) => `${(fraction * 100).toFixed(1)}%`;
+const percent = (fraction: number) => formatPercent(fraction, 1);
 const count = (value: number) => value.toLocaleString("en-US");
 
 function statusText(run: EquityRun, missing: string | null): string {
@@ -100,11 +101,7 @@ function PlayerRow(props: {
           <div className="mb-3 flex items-center gap-1">
             <h3 className="m-0 font-bold font-display text-2xl leading-none">{name}</h3>
             {props.canRemove && (
-              <button
-                type="button"
-                onClick={props.onRemove}
-                className="-my-3 h-11 rounded-full px-3 text-dust text-sm underline decoration-2 underline-offset-4 hover:text-chalk focus-visible:outline-3 focus-visible:outline-chalk"
-              >
+              <button type="button" onClick={props.onRemove} className={`-my-3 text-sm ${textButton}`}>
                 Remove<span className="sr-only">{` ${name}`}</span>
               </button>
             )}
@@ -139,7 +136,7 @@ function PlayerRow(props: {
               }}
               className="peer sr-only"
             />
-            <span className="flex h-10 cursor-pointer items-center justify-center rounded-full font-bold text-dust peer-checked:bg-chalk peer-checked:text-night peer-focus-visible:outline-3 peer-focus-visible:outline-chalk">
+            <span className="flex h-11 cursor-pointer items-center justify-center rounded-full font-bold text-dust peer-checked:bg-chalk peer-checked:text-night peer-focus-visible:outline-3 peer-focus-visible:outline-chalk">
               {label}
             </span>
           </label>
@@ -208,11 +205,7 @@ export function EquityTool() {
           {run.status === "running" ? "Calculating" : status}
         </p>
         {players.length < MAX_PLAYERS && (
-          <button
-            type="button"
-            onClick={() => setPlayers([...players, { kind: "random" }])}
-            className="mt-3 h-12 rounded-full border-2 border-chalk px-5 font-bold font-display text-chalk text-xl focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-3"
-          >
+          <button type="button" onClick={() => setPlayers([...players, { kind: "random" }])} className={`mt-3 ${outlineButton}`}>
             Add player
           </button>
         )}

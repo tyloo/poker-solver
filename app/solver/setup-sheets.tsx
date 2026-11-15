@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { primaryButton, textButton } from "@/components/buttons";
 import { Sheet } from "@/components/sheet";
+import { BLIND_STRUCTURE } from "@/content/blind-structure";
+import { type BlindLevel, blindLevel, blindLevels } from "@/lib/poker/blinds";
 import { POSITIONS, type Position, STACK_TIER_LABELS } from "@/lib/poker/table";
 import { callerPositions, describeLine, lineSpot, MIN_DEPTH, OPENER_POSITIONS, type OpenerPosition, type PreflopLine } from "@/lib/solver/preflop-line";
 
-const primaryButton =
-  "h-12 rounded-full bg-chalk px-6 font-bold font-display text-night text-xl focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-3 disabled:opacity-40";
 const optionButton =
   "h-11 min-w-0 flex-1 rounded-xl bg-night px-0.5 font-bold font-display text-lg leading-none focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-2 disabled:opacity-35 aria-pressed:bg-chalk aria-pressed:text-night";
+const LEVEL_COUNT = 15;
 const inputClass =
   "block h-12 w-full rounded-xl border-2 border-night bg-night px-3 text-chalk text-xl focus-visible:border-chalk focus-visible:outline-none aria-invalid:border-raise";
 
@@ -32,16 +34,34 @@ function Choice<T extends string>({ legend, options, value, onChange }: { legend
 const parseAmount = (text: string) => (text.trim() === "" ? Number.NaN : Number(text.replace(",", ".")));
 const bb = (value: number) => `${Number(value.toFixed(2))}bb`;
 
-/** Picks the Preflop line and starting Stack depth; Done replaces both Ranges, the pot and the stack. */
-export function LineSheet({ line, depth, onDone, onClose }: { line: PreflopLine | null; depth: number; onDone: (line: PreflopLine, depth: number) => void; onClose: () => void }) {
+const blinds = ({ sb, bb }: BlindLevel) => `${sb.toLocaleString("en-US")}/${bb.toLocaleString("en-US")}`;
+
+/** "level 1 (50/50)". */
+export const describeLevel = (level: number) => `level ${level} (${blinds(blindLevel(BLIND_STRUCTURE, level))})`;
+
+type LineSheetProps = {
+  line: PreflopLine | null;
+  depth: number;
+  level: number;
+  onDone: (line: PreflopLine, depth: number, level: number) => void;
+  onClose: () => void;
+};
+
+/** Picks the Preflop line, starting Stack depth and Blind level; Done replaces both Ranges, the pot and the stack. */
+export function LineSheet({ line, depth, level, onDone, onClose }: LineSheetProps) {
   const [kind, setKind] = useState<PreflopLine["kind"]>(line?.kind ?? "open");
   const [opener, setOpener] = useState<OpenerPosition>(line?.kind === "open" ? line.opener : "BTN");
   const [caller, setCaller] = useState<Position>(line?.kind === "open" ? line.caller : "BB");
   const [depthText, setDepthText] = useState(String(depth));
+  const [nextLevel, setNextLevel] = useState(level);
 
   const next: PreflopLine = kind === "limp" ? { kind } : { caller, kind, opener };
   const nextDepth = parseAmount(depthText);
-  const result = Number.isFinite(nextDepth) && nextDepth > 0 ? lineSpot(next, nextDepth) : ({ error: "Enter the stack depth in bb", ok: false } as const);
+  const result =
+    Number.isFinite(nextDepth) && nextDepth > 0
+      ? lineSpot(next, nextDepth, blindLevel(BLIND_STRUCTURE, nextLevel))
+      : ({ error: "Enter the stack depth in bb", ok: false } as const);
+  const levels = blindLevels(BLIND_STRUCTURE, Math.max(LEVEL_COUNT, level));
   const callers = callerPositions(opener);
 
   return (
@@ -49,7 +69,7 @@ export function LineSheet({ line, depth, onDone, onClose }: { line: PreflopLine 
       title="Preflop line"
       onClose={onClose}
       actions={
-        <button type="button" disabled={!result.ok} onClick={() => onDone(next, nextDepth)} className={primaryButton}>
+        <button type="button" disabled={!result.ok} onClick={() => onDone(next, nextDepth, nextLevel)} className={primaryButton}>
           Done
         </button>
       }
@@ -95,6 +115,16 @@ export function LineSheet({ line, depth, onDone, onClose }: { line: PreflopLine 
             onChange={(event) => setDepthText(event.target.value)}
             className={inputClass}
           />
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-dust">Blind level, for the blinds in the pot</span>
+          <select value={nextLevel} onChange={(event) => setNextLevel(Number(event.target.value))} className={inputClass}>
+            {levels.map((option, index) => (
+              <option key={index} value={index + 1}>
+                {`${index + 1}: ${blinds(option)}`}
+              </option>
+            ))}
+          </select>
         </label>
         <p id="line-summary" aria-live="polite" className={`m-0 ${result.ok ? "text-chalk" : "text-raise"}`}>
           {result.ok ? (
@@ -159,11 +189,7 @@ export function AmountsSheet(props: { pot: number; stack: number; canReset: bool
         {potOk && stackOk && <p className="m-0 text-dust">{`SPR ${(stack / pot).toFixed(1)}`}</p>}
         {props.canReset && (
           <div>
-            <button
-              type="button"
-              onClick={props.onReset}
-              className="-ml-4 h-12 rounded-full px-4 font-bold text-dust underline decoration-2 underline-offset-4 hover:text-chalk focus-visible:outline-3 focus-visible:outline-chalk"
-            >
+            <button type="button" onClick={props.onReset} className={`-ml-4 ${textButton}`}>
               Use the Preflop line's amounts
             </button>
           </div>

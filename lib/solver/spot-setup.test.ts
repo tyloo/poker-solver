@@ -42,6 +42,13 @@ describe("resolveSetup", () => {
     expect(CHIPS_PER_BB).toBe(100);
   });
 
+  it("works out the line's pot with the real blinds of the Blind level", () => {
+    const board = cards("Ks7d2h9c");
+    expect(resolveSetup(setup({ board, level: 1 })).pot).toBe(6);
+    expect(resolveSetup(setup({ board, level: 1 })).spot?.pot).toBe(600);
+    expect(resolveSetup(setup({ board, level: 5 })).pot).toBe(5.5);
+  });
+
   it("uses the overrides for the pot, stack, Ranges and sizes", () => {
     const resolved = resolveSetup(setup({ bets: [50, 100], board: cards("Ks7d2h9c3s"), pot: 10, raise: 2.5, ranges: ["QQ+,AKs", "22+"], stack: 20.5 }));
     expect(resolved.spot).toEqual({
@@ -98,7 +105,9 @@ describe("resolveSetup", () => {
     const a = resolveSetup(setup({ board: cards("Ks7d2h9c") }));
     const b = resolveSetup(setup({ board: cards("Ks7d2h9c"), hand: cards("AsKd") }));
     const c = resolveSetup(setup({ bets: [50], board: cards("Ks7d2h9c") }));
+    const d = resolveSetup(setup({ board: cards("Ks7d2h9c"), level: 1 }));
     expect(a.key).toBe(b.key);
     expect(a.key).not.toBe(c.key);
+    expect(a.key).not.toBe(d.key);
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { primaryButton } from "@/components/buttons";
 import { ActionLegend, ChartGrid, classSummary } from "@/components/chart-grid";
 import { ChartPicker } from "@/components/chart-picker";
 import { type Chart, chartFileLocation } from "@/lib/charts/chart-files";
@@ -9,19 +9,15 @@ import { getChart } from "@/lib/charts/charts";
 import { type ActionId, type ChartSelection, chartKeyFor } from "@/lib/charts/model";
 import { type BrowseSelection, browseParams, browseSeries, isPushFoldSituation, parseBrowseParams } from "@/lib/charts/push-fold";
 import { draftStrings } from "@/lib/charts/scratchpad";
-import type { HandClassId } from "@/lib/poker/combo";
 import { handClassWeights } from "@/lib/poker/range";
 import { OPEN_SIZE_BB } from "@/lib/poker/table";
-import { setUrlParams } from "@/lib/url-state";
+import { codecs, HAND_CLASS_PARAM, setUrlParams, useUrlState } from "@/lib/url-state";
 import { PushFoldView } from "./push-fold-view";
 import { Scratchpad } from "./scratchpad";
 
 const EDIT_PARAM = "edit";
 /** Scratchpad range strings live in the URL under their action ids. */
 const DRAFT_PARAMS = ["raise", "call", "limp"] as const satisfies readonly ActionId[];
-
-const primaryButton =
-  "h-12 rounded-full bg-chalk px-6 font-bold font-display text-night text-xl focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-3";
 
 function BaselineNote({ chart }: { chart: Chart }) {
   if (!chart.baseline) return null;
@@ -52,7 +48,7 @@ function ChartView({ selection, select }: { selection: ChartSelection; select: (
   const params = useSearchParams();
   const key = chartKeyFor(selection);
   const chart = getChart(key);
-  const [selected, setSelected] = useState<HandClassId | null>(null);
+  const [selected, setSelected] = useUrlState(HAND_CLASS_PARAM, codecs.handClass(null));
 
   if (params.get(EDIT_PARAM) === "1") {
     const strings = Object.fromEntries(DRAFT_PARAMS.map((id) => [id, params.get(id) ?? ""]));

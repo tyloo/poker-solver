@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { type CardId, cardFromId, cardId, RANKS, type Rank, SUITS } from "@/lib/poker/card";
+import { primaryButton, textButton } from "./buttons";
 import { PlayingCard } from "./playing-card";
 import { Sheet } from "./sheet";
 import { SUIT_COLOR, SUIT_NAMES, SuitIcon } from "./suit-icon";
@@ -19,10 +20,6 @@ type Props = {
 
 const rankLabel = (rank: Rank) => (rank === "T" ? "10" : rank);
 const KEY_RANKS: Record<string, Rank> = { "0": "T", "1": "T" };
-
-const primaryButton =
-  "h-12 rounded-full bg-chalk px-6 font-bold font-display text-night text-xl focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-3";
-const textButton = "h-12 rounded-full px-4 font-bold text-dust underline decoration-2 underline-offset-4 hover:text-chalk focus-visible:outline-3 focus-visible:outline-chalk";
 
 /** Rank-then-suit keypad in a bottom sheet. Tap a picked card to take it back. */
 export function CardKeypadSheet({ title, value, max, unavailable, onDone, onClose }: Props) {

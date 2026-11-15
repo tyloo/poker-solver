@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { primaryButton, textButton } from "@/components/buttons";
 import { CardKeypadSheet } from "@/components/card-keypad-sheet";
 import { Segmented } from "@/components/chart-picker";
 import { NumberField } from "@/components/number-field";
@@ -10,8 +11,8 @@ import { VerdictCard } from "@/components/verdict-card";
 import {
   defaultOpponents,
   type Opponent,
+  opponentPositions,
   opponentRange,
-  opponentSeats,
   type PostflopLine,
   type PostflopVerdictKind,
   postflopLine,
@@ -19,32 +20,30 @@ import {
   postflopVerdict,
   solverLinkFor,
 } from "@/lib/advisor/postflop";
-import type { PreflopAdvice, PreflopSpot } from "@/lib/advisor/preflop";
+import type { PreflopAdvice, PreflopQuestion } from "@/lib/advisor/preflop";
 import { type AdvisorSetup, toUnit } from "@/lib/advisor/setup";
 import type { ActionColour } from "@/lib/charts/model";
 import { PLAYER_TYPE_LABELS, PLAYER_TYPES } from "@/lib/charts/player-types";
 import type { EquityInput, EquityResult } from "@/lib/equity/engine";
 import { type EquityRun, useEquity } from "@/lib/equity/use-equity";
+import { formatPercent } from "@/lib/format";
 import { type CardId, cardFromId } from "@/lib/poker/card";
 import type { Range } from "@/lib/poker/range";
 import { solverHref } from "@/lib/solver/spot-url";
 import type { Update } from "./advisor-tool";
 
-const textButton = "h-12 rounded-full px-4 font-bold text-dust underline decoration-2 underline-offset-4 hover:text-chalk focus-visible:outline-3 focus-visible:outline-chalk";
-const primaryButton =
-  "inline-flex h-12 items-center rounded-full bg-chalk px-6 font-bold font-display text-night text-xl focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-3";
 const VERDICT_COLOURS: Record<PostflopVerdictKind, ActionColour> = { bet: "raise", call: "call", check: "call", fold: "fold", push: "push" };
 const MAX_OPPONENTS = 7;
 
-const percent = (share: number) => `${(share * 100).toFixed(1)}%`;
+const percent = (share: number) => formatPercent(share, 1);
 const count = (value: number) => value.toLocaleString("en-US");
 
-type Props = { setup: AdvisorSetup; spot: PreflopSpot | null; advice: PreflopAdvice | null; update: Update };
+type Props = { setup: AdvisorSetup; question: PreflopQuestion | null; advice: PreflopAdvice | null; update: Update };
 
-export function AdvisorPostflop({ setup, spot, advice, update }: Props) {
+export function AdvisorPostflop({ setup, question, advice, update }: Props) {
   const [picking, setPicking] = useState(false);
   const { board } = setup;
-  const line = spot && advice ? postflopLine(spot, advice) : null;
+  const line = question && advice ? postflopLine(question, advice) : null;
 
   return (
     <section aria-labelledby="postflop-heading" className="flex flex-col gap-3">
@@ -70,11 +69,11 @@ export function AdvisorPostflop({ setup, spot, advice, update }: Props) {
       </button>
 
       {!line ? (
-        <p className="m-0 text-dust">Pick your hand and seat first.</p>
+        <p className="m-0 text-dust">Pick your hand and position first.</p>
       ) : !line.ok ? (
         <p className="m-0 text-dust">{line.reason}</p>
       ) : board.length < 3 ? (
-        <p className="m-0 text-dust">Add the flop to check a postflop spot.</p>
+        <p className="m-0 text-dust">Add the flop for your postflop numbers.</p>
       ) : (
         <PostflopInputs setup={setup} line={line.line} update={update} />
       )}
@@ -99,11 +98,11 @@ export function AdvisorPostflop({ setup, spot, advice, update }: Props) {
 function PostflopInputs({ setup, line, update }: { setup: AdvisorSetup; line: PostflopLine; update: Update }) {
   const unit = setup.stack.unit === "chips" ? "chips" : "bb";
   const decimal = unit === "bb";
-  const seats = opponentSeats(line);
+  const positions = opponentPositions(line);
   const opponents = (setup.opponents ?? defaultOpponents(line).map((position): Opponent => ({ position, type: "standard" }))).filter((opponent) =>
-    seats.includes(opponent.position),
+    positions.includes(opponent.position),
   );
-  const setOpponents = (next: Opponent[]) => update({ opponents: [...next].sort((a, b) => seats.indexOf(a.position) - seats.indexOf(b.position)) });
+  const setOpponents = (next: Opponent[]) => update({ opponents: [...next].sort((a, b) => positions.indexOf(a.position) - positions.indexOf(b.position)) });
   const ranges = opponents.map((opponent) => ({ opponent, result: opponentRange(line, opponent) }));
 
   return (
@@ -125,7 +124,7 @@ function PostflopInputs({ setup, line, update }: { setup: AdvisorSetup; line: Po
       <fieldset className="m-0 min-w-0 border-0 p-0">
         <legend className="mb-1.5 p-0 text-dust">Still in the hand</legend>
         <div className="flex flex-wrap gap-1">
-          {seats.map((position) => {
+          {positions.map((position) => {
             const index = opponents.findIndex((opponent) => opponent.position === position);
             return (
               <button
@@ -217,10 +216,11 @@ function PostflopResults({ setup, line, opponents }: { setup: AdvisorSetup; line
         ? "Calculating…"
         : `${result.method === "exact" ? `Exact, ${count(result.samples)} runouts` : `Monte Carlo, ${count(result.samples)} samples`} vs ${opponents.map(({ position, type }) => `${position} ${PLAYER_TYPE_LABELS[type]}`).join(", ")}`;
 
-  const villain = opponents.length === 1 ? opponents[0] : null;
+  const opponent = opponents.length === 1 ? opponents[0] : null;
+  const level = setup.stack.unit === "chips" ? setup.stack.level : undefined;
   const solver =
-    villain && amounts
-      ? solverHref(solverLinkFor({ board: setup.board, hand, line, opponent: villain, pot: toUnit(amounts.pot, setup.stack), stack: toUnit(amounts.stack, setup.stack) }))
+    opponent && amounts
+      ? solverHref(solverLinkFor({ board: setup.board, hand, level, line, opponent, pot: toUnit(amounts.pot, setup.stack), stack: toUnit(amounts.stack, setup.stack) }))
       : null;
 
   return (
@@ -244,12 +244,12 @@ function PostflopResults({ setup, line, opponents }: { setup: AdvisorSetup; line
 
       {solver ? (
         <div>
-          <Link href={solver} className={primaryButton}>
+          <Link href={solver} className={`inline-flex items-center ${primaryButton}`}>
             Open in Solver
           </Link>
         </div>
       ) : (
-        villain === null && <p className="m-0 text-dust">The Solver takes heads-up Spots: keep one opponent to open this in the Solver.</p>
+        opponent === null && <p className="m-0 text-dust">The Solver takes heads-up Spots: keep one opponent to open this in the Solver.</p>
       )}
     </div>
   );

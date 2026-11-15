@@ -8,6 +8,7 @@ import { playerTypeChart } from "@/lib/charts/charts";
 import { type ChartSelection, chartKeyFor, DEFAULT_SELECTION, describeChart } from "@/lib/charts/model";
 import { PLAYER_TYPE_LABELS, type PlayerType } from "@/lib/charts/player-types";
 import type { Range } from "@/lib/poker/range";
+import { textButton } from "./buttons";
 
 const SOURCES = [
   { label: "Charts", value: "standard" },
@@ -83,8 +84,6 @@ export function LoadRangeSheet({ onLoad, onClose, initial = DEFAULT_SELECTION }:
     </Sheet>
   );
 }
-
-const textButton = "h-12 rounded-full px-4 font-bold text-dust underline decoration-2 underline-offset-4 hover:text-chalk focus-visible:outline-3 focus-visible:outline-chalk";
 
 /** A "Load" button that opens the Load sheet; fits the Equity Range editor's load slot. */
 export function LoadRangeButton({ onLoad, initial }: { onLoad: (range: Range, label: string) => void; initial?: ChartSelection }) {

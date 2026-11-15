@@ -45,6 +45,16 @@ export function chanceLabel(card: CardId, boardCards: number): string {
   return `${boardCards === 3 ? "Turn" : "River"} ${formatCards([cardFromId(card)])}`;
 }
 
+/** What the tree browser needs from a node to name the steps out of it. */
+export type StepSource = Pick<NodeView, "kind" | "player" | "actions" | "cards" | "board">;
+
+/** The step out of `node` along `index`: "BTN bets 1.82bb" or "Turn 9c"; null when the node has no such step (an invalid or stale path). */
+export function stepLabel(node: StepSource, index: number, players: readonly [string, string]): string | null {
+  if (node.kind === "chance") return index < node.cards.length ? chanceLabel(node.cards[index], node.board.length) : null;
+  if (node.kind !== "action" || node.player === null || index >= node.actions.length) return null;
+  return actionPhrase(players[node.player], node.actions[index]);
+}
+
 /** Grid colours per action: passive Call, all-in Push, fold Fold; bets and raises in Raise shades, the smallest lightest. */
 export function actionColours(actions: readonly SolverAction[]): string[] {
   const sized = actions.filter((action) => action.kind === "bet" || action.kind === "raise");

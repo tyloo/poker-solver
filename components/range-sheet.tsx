@@ -1,8 +1,10 @@
 "use client";
 
 import { type ReactNode, useRef, useState } from "react";
+import { formatPercent } from "@/lib/format";
 import { COMBO_COUNT, HAND_CLASS_NAMES } from "@/lib/poker/combo";
 import { createRange, formatRange, handClassWeights, parseRange, type Range, setHandClassWeight } from "@/lib/poker/range";
+import { primaryButton, textButton } from "./buttons";
 import { RangeGrid } from "./range-grid";
 import { Sheet } from "./sheet";
 
@@ -18,12 +20,6 @@ type Props = {
    */
   load?: (apply: (range: Range) => void) => ReactNode;
 };
-
-const primaryButton =
-  "h-12 rounded-full bg-chalk px-6 font-bold font-display text-night text-xl focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-3 disabled:opacity-40";
-const textButton = "h-12 rounded-full px-4 font-bold text-dust underline decoration-2 underline-offset-4 hover:text-chalk focus-visible:outline-3 focus-visible:outline-chalk";
-
-const percentLabel = (weight: number) => `${Math.round(weight * 100)}%`;
 
 export function rangeSummary(range: Range): string {
   const combos = range.reduce((sum, weight) => sum + weight, 0);
@@ -72,7 +68,7 @@ export function RangeSheet({ title, value, onDone, onClose, load }: Props) {
       <RangeGrid
         label="Hand classes in the range"
         segments={(cls) => (weights[cls] > 0 ? [{ color: "var(--color-chalk)", share: weights[cls] }] : [])}
-        describe={(cls) => `${HAND_CLASS_NAMES[cls]}, ${weights[cls] > 0 ? (weights[cls] === 1 ? "in range" : percentLabel(weights[cls])) : "not in range"}`}
+        describe={(cls) => `${HAND_CLASS_NAMES[cls]}, ${weights[cls] > 0 ? (weights[cls] === 1 ? "in range" : formatPercent(weights[cls])) : "not in range"}`}
         onPaint={paint}
       />
       <p className="mt-2 mb-4 text-dust">{rangeSummary(range)}</p>

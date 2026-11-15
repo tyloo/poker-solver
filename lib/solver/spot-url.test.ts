@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { cardId, parseCards } from "@/lib/poker/card";
 import { parseRange } from "@/lib/poker/range";
 import { DEFAULT_DEPTH, DEFAULT_LINE } from "./preflop-line";
-import { DEFAULT_RAISE, DEFAULT_SETUP, parseSpotParams, type SpotSetup, solverHref, spotParams } from "./spot-url";
+import { DEFAULT_LEVEL, DEFAULT_RAISE, DEFAULT_SETUP, parseSpotParams, type SpotSetup, solverHref, spotParams, treePathCodec } from "./spot-url";
 
 const cards = (text: string) => (parseCards(text) ?? []).map(cardId);
 const params = (query: string) => new URLSearchParams(query);
@@ -20,6 +20,7 @@ describe("parseSpotParams", () => {
       board: [],
       depth: DEFAULT_DEPTH,
       hand: [],
+      level: DEFAULT_LEVEL,
       line: DEFAULT_LINE,
       pot: null,
       raise: DEFAULT_RAISE,
@@ -28,13 +29,18 @@ describe("parseSpotParams", () => {
     });
   });
 
+  it("defaults to the first Blind level where the SB is half the BB (level 2, 50/100)", () => {
+    expect(DEFAULT_LEVEL).toBe(2);
+  });
+
   it("reads every param", () => {
-    const setup = parseSpotParams(params("line=CO_BB&depth=25&board=Ks7d2h9c&pot=5.5&stack=22.5&oop=22%2B,A2s%2B&ip=QQ%2B&bets=50_33&raise=2.5&hand=AsKd"));
+    const setup = parseSpotParams(params("line=CO_BB&depth=25&level=1&board=Ks7d2h9c&pot=5.5&stack=22.5&oop=22%2B,A2s%2B&ip=QQ%2B&bets=50_33&raise=2.5&hand=AsKd"));
     expect(setup).toEqual({
       bets: [33, 50],
       board: cards("Ks7d2h9c"),
       depth: 25,
       hand: cards("AsKd"),
+      level: 1,
       line: { caller: "BB", kind: "open", opener: "CO" },
       pot: 5.5,
       raise: 2.5,
@@ -46,9 +52,10 @@ describe("parseSpotParams", () => {
   });
 
   it("repairs malformed values instead of failing", () => {
-    const setup = parseSpotParams(params("line=BB_CO&depth=abc&board=AsAs&pot=-1&stack=x&bets=0_abc&raise=1&hand=As"));
+    const setup = parseSpotParams(params("line=BB_CO&depth=abc&level=0&board=AsAs&pot=-1&stack=x&bets=0_abc&raise=1&hand=As"));
     expect(setup).toEqual(DEFAULT_SETUP);
     expect(parseSpotParams(params("line=CO_HJ")).line).toEqual(DEFAULT_LINE);
+    expect(parseSpotParams(params("level=1.5")).level).toBe(DEFAULT_LEVEL);
     expect(parseSpotParams(params("board=AsKdQhJcTs9s")).board).toEqual(cards("AsKdQhJcTs"));
   });
 
@@ -61,6 +68,8 @@ describe("spotParams", () => {
   it("writes only the given keys, with defaults as null so they leave the URL", () => {
     expect(spotParams({ board: [], line: DEFAULT_LINE, pot: null })).toEqual({ board: null, line: null, pot: null });
     expect(spotParams({ bets: [75, 33], depth: 30, raise: 3, ranges: ["QQ+, AKs", null] })).toEqual({ bets: "33_75", depth: "30", ip: null, oop: "QQ+,AKs", raise: null });
+    expect(spotParams({ level: DEFAULT_LEVEL })).toEqual({ level: null });
+    expect(spotParams({ level: 1 })).toEqual({ level: "1" });
   });
 
   it("round-trips a full setup", () => {
@@ -69,6 +78,7 @@ describe("spotParams", () => {
       board: cards("Ks7d2h"),
       depth: 22.5,
       hand: cards("QhQd"),
+      level: 7,
       line: { caller: "SB", kind: "open", opener: "UTG+1" },
       pot: 6.25,
       raise: 4,
@@ -94,16 +104,18 @@ describe("solverHref", () => {
       board: cards("Ks7d2h9c"),
       depth: 30,
       hand: cards("AsKd"),
+      level: 1,
       line: { caller: "BB", kind: "open", opener: "CO" },
       pot: 4.5,
       ranges: [oop.range, "22+, ATo:0.5"],
       stack: 28,
     });
-    expect(href).toBe("/solver?line=CO_BB&depth=30&board=Ks7d2h9c&pot=4.5&stack=28&oop=QQ%2B%2CAKs&ip=22%2B%2CATo%3A0.5&bets=33_75&hand=AsKd");
+    expect(href).toBe("/solver?line=CO_BB&depth=30&level=1&board=Ks7d2h9c&pot=4.5&stack=28&oop=QQ%2B%2CAKs&ip=22%2B%2CATo%3A0.5&bets=33_75&hand=AsKd");
     const setup = parseSpotParams(new URL(href, "https://example.com").searchParams);
     expect(setup.ranges).toEqual(["QQ+,AKs", "22+,ATo:0.5"]);
     expect(setup.bets).toEqual([33, 75]);
     expect(setup.pot).toBe(4.5);
+    expect(setup.level).toBe(1);
   });
 
   it("marks a Spot with Ranges but no Preflop line as line=none, so the players are just OOP and IP", () => {
@@ -114,5 +126,18 @@ describe("solverHref", () => {
 
   it("rounds amounts to 0.01bb", () => {
     expect(solverHref({ pot: 5.123456, stack: 1 / 3 })).toBe("/solver?pot=5.12&stack=0.33");
+  });
+});
+
+describe("treePathCodec", () => {
+  it("writes the path through the tree as dot-separated indexes, and the root as no param", () => {
+    expect(treePathCodec.serialize([0, 2, 17])).toBe("0.2.17");
+    expect(treePathCodec.serialize([])).toBeNull();
+    expect(treePathCodec.parse("0.2.17")).toEqual([0, 2, 17]);
+    expect(treePathCodec.parse(null)).toEqual([]);
+  });
+
+  it("falls back to the root on a malformed path", () => {
+    for (const raw of ["", "a", "0..1", "1.-2", "1.5x", "0.1.2.", "1.2.5e1"]) expect(treePathCodec.parse(raw), raw).toEqual([]);
   });
 });

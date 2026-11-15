@@ -3,7 +3,11 @@
 import { type ReactNode, useRef, useState } from "react";
 import { HAND_CLASS_COUNT, HAND_CLASS_NAMES, type HandClassId } from "@/lib/poker/combo";
 
-/** A coloured share of a grid square, filled left to right; the rest shows the Fold colour. */
+/**
+ * A coloured share of a grid square, filled left to right; the rest shows the Fold colour.
+ * Labels are Night over the fill and Chalk over Fold, so a fill colour must keep Night text at AA contrast (every action colour but Fold does),
+ * unless `content` sets its own text colour.
+ */
 export type GridSegment = { share: number; color: string };
 
 type Props = {
@@ -28,13 +32,29 @@ type Props = {
 const CLASSES = Array.from({ length: HAND_CLASS_COUNT }, (_, cls) => cls);
 const ARROW_STEPS: Record<string, number> = { ArrowDown: 13, ArrowLeft: -1, ArrowRight: 1, ArrowUp: -13 };
 
-function Fill({ segments }: { segments: readonly GridSegment[] }) {
+const filledShare = (segments: readonly GridSegment[]) =>
+  Math.min(
+    1,
+    segments.reduce((sum, segment) => sum + segment.share, 0),
+  );
+
+/** The fill, then the label in Chalk over Fold and again in Night clipped to the fill, so each part of it contrasts with what is behind it. */
+function Square({ segments, label }: { segments: readonly GridSegment[]; label: ReactNode }) {
+  const filled = filledShare(segments);
   return (
-    <span aria-hidden="true" className="absolute inset-0 flex">
-      {segments.map((segment, i) => (
-        <span key={i} style={{ background: segment.color, width: `${segment.share * 100}%` }} />
-      ))}
-    </span>
+    <>
+      <span aria-hidden="true" className="absolute inset-0 flex">
+        {segments.map((segment, i) => (
+          <span key={i} style={{ background: segment.color, width: `${segment.share * 100}%` }} />
+        ))}
+      </span>
+      <span className="relative">{label}</span>
+      {filled > 0 && (
+        <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center text-night" style={{ clipPath: `inset(0 ${(1 - filled) * 100}% 0 0)` }}>
+          {label}
+        </span>
+      )}
+    </>
   );
 }
 
@@ -64,13 +84,8 @@ export function RangeGrid({ label, segments, describe = (cls) => HAND_CLASS_NAME
   };
 
   const squareClass = (cls: HandClassId) => {
-    const filled = segments(cls).reduce((sum, segment) => sum + segment.share, 0);
-    // A halo keeps the name legible where it straddles a partial fill.
-    const halo = filled > 0 && filled < 1 ? (filled >= 0.5 ? "[text-shadow:0_0_3px_var(--color-chalk)]" : "[text-shadow:0_0_3px_var(--color-night)]") : "";
     const ring = cls === selected ? "z-10 outline-2 outline-chalk outline-offset-1" : "";
-    return `relative flex aspect-square items-center justify-center overflow-hidden rounded-[3px] bg-fold font-bold font-display text-[0.8125rem] leading-none ${
-      filled >= 0.5 ? "text-night" : "text-chalk"
-    } ${halo} ${ring}`;
+    return `relative flex aspect-square items-center justify-center overflow-hidden rounded-[3px] bg-fold font-bold font-display text-[0.8125rem] text-chalk leading-none ${ring}`;
   };
 
   if (!onPaint && !onSelect) {
@@ -80,8 +95,7 @@ export function RangeGrid({ label, segments, describe = (cls) => HAND_CLASS_NAME
         <div className="grid grid-cols-13 gap-px">
           {CLASSES.map((cls) => (
             <span key={cls} role="img" aria-label={describe(cls)} className={squareClass(cls)}>
-              <Fill segments={segments(cls)} />
-              <span className="relative">{content ? content(cls) : HAND_CLASS_NAMES[cls]}</span>
+              <Square segments={segments(cls)} label={content ? content(cls) : HAND_CLASS_NAMES[cls]} />
             </span>
           ))}
         </div>
@@ -135,8 +149,7 @@ export function RangeGrid({ label, segments, describe = (cls) => HAND_CLASS_NAME
             }}
             className={`${squareClass(cls)} focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-chalk focus-visible:outline-offset-1`}
           >
-            <Fill segments={segments(cls)} />
-            <span className="relative">{content ? content(cls) : HAND_CLASS_NAMES[cls]}</span>
+            <Square segments={segments(cls)} label={content ? content(cls) : HAND_CLASS_NAMES[cls]} />
           </button>
         ))}
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { primaryButton, textButton } from "@/components/buttons";
 import { actionColor, classFrequencies } from "@/components/chart-grid";
 import { RangeGrid } from "@/components/range-grid";
 import { type Chart, chartFileLocation } from "@/lib/charts/chart-files";
@@ -23,9 +24,6 @@ const SYNC_DELAY_MS = 400;
 
 const pill =
   "h-11 min-w-0 flex-1 rounded-xl bg-booth px-1 font-bold font-display text-lg leading-none focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-2";
-const textButton = "h-12 rounded-full px-4 font-bold text-dust underline decoration-2 underline-offset-4 hover:text-chalk focus-visible:outline-3 focus-visible:outline-chalk";
-const primaryButton =
-  "h-12 rounded-full bg-chalk px-6 font-bold font-display text-night text-xl focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-3";
 
 const share = (weights: Float64Array) => {
   let combos = 0;

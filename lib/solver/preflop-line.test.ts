@@ -39,7 +39,7 @@ describe("isValidLine", () => {
 });
 
 describe("linePlayers", () => {
-  it("orders the players OOP first: the blinds act first postflop, then by seat", () => {
+  it("orders the players OOP first: the blinds act first postflop, then in preflop order", () => {
     expect(linePlayers(open("CO", "BB"))).toEqual(["BB", "CO"]);
     expect(linePlayers(open("CO", "BTN"))).toEqual(["CO", "BTN"]);
     expect(linePlayers(open("BTN", "SB"))).toEqual(["SB", "BTN"]);
@@ -94,6 +94,29 @@ describe("lineSpot", () => {
     expect(result.stack).toBe(39);
     expect(result.ranges[0]).toEqual(actionRange({ position: "SB", situation: "open", tier: "40bb+" }, "limp"));
     expect(result.ranges[1]).toEqual(actionRange({ limpers: "1", position: "BB", situation: "vs-limpers", tier: "40bb+" }, "check"));
+  });
+
+  it("uses the real blinds: at level 1 (50/50) the SB puts in a full 1bb", () => {
+    const level1 = { bb: 50, sb: 50 };
+    const blinds = (line: PreflopLine, depth: number) => {
+      const result = lineSpot(line, depth, level1);
+      if (!result.ok) throw new Error(result.error);
+      return { pot: result.pot, stack: result.stack };
+    };
+    expect(blinds(open("CO", "BB"), 40)).toEqual({ pot: 6, stack: 37.5 });
+    expect(blinds(open("HJ", "BTN"), 50)).toEqual({ pot: 7, stack: 47.5 });
+    expect(blinds(open("BTN", "SB"), 25)).toEqual({ pot: 5, stack: 23 });
+    expect(blinds(open("SB", "BB"), 18)).toEqual({ pot: 4, stack: 16 });
+    expect(blinds({ kind: "limp" }, 40)).toEqual({ pot: 2, stack: 39 });
+  });
+
+  it("takes the SB as half the BB when no Blind level is given, and at any level where it is", () => {
+    const at = (level: { sb: number; bb: number }) => {
+      const result = lineSpot(open("CO", "BB"), 40, level);
+      return result.ok ? result.pot : Number.NaN;
+    };
+    expect(at({ bb: 100, sb: 50 })).toBe(5.5);
+    expect(at({ bb: 2000, sb: 1000 })).toBe(5.5);
   });
 
   it("refuses depths below 15bb, where the Push/fold charts apply", () => {

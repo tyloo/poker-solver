@@ -5,16 +5,23 @@ import type { PlayerType } from "@/lib/charts/player-types";
 import { type CardId, cardId, parseCards } from "@/lib/poker/card";
 import { formatRange } from "@/lib/poker/range";
 import { parseSpotParams, solverHref } from "@/lib/solver/spot-url";
-import { defaultOpponents, LOW_SPR, opponentRange, opponentSeats, type PostflopLine, postflopLine, postflopNumbers, postflopVerdict, solverLinkFor } from "./postflop";
-import { advisePreflop, type PreflopSpot } from "./preflop";
+import { defaultOpponents, LOW_SPR, opponentPositions, opponentRange, type PostflopLine, postflopLine, postflopNumbers, postflopVerdict, solverLinkFor } from "./postflop";
+import { advisePreflop, type PreflopQuestion } from "./preflop";
 
 const cards = (text: string): CardId[] => (parseCards(text) ?? []).map(cardId);
 const hand = (text: string) => cards(text) as [CardId, CardId];
 
-const spot = (overrides: Partial<PreflopSpot>): PreflopSpot => ({ depth: 50, hand: hand("AsKd"), players: 8, position: "CO", situation: { kind: "folded" }, ...overrides });
+const question = (overrides: Partial<PreflopQuestion>): PreflopQuestion => ({
+  depth: 50,
+  hand: hand("AsKd"),
+  players: 8,
+  position: "CO",
+  situation: { kind: "folded" },
+  ...overrides,
+});
 
-function line(overrides: Partial<PreflopSpot>): PostflopLine {
-  const input = spot(overrides);
+function line(overrides: Partial<PreflopQuestion>): PostflopLine {
+  const input = question(overrides);
   const result = postflopLine(input, advisePreflop(input));
   if (!result.ok) throw new Error(result.reason);
   return result.line;
@@ -26,7 +33,7 @@ const estimate = (type: PlayerType, key: ChartKey, action: ActionId) => {
   return range;
 };
 
-function rangeOf(postflop: PostflopLine, position: PreflopSpot["position"], type: PlayerType = "standard") {
+function rangeOf(postflop: PostflopLine, position: PreflopQuestion["position"], type: PlayerType = "standard") {
   const result = opponentRange(postflop, { position, type });
   if (!result.ok) throw new Error(result.error);
   return result;
@@ -90,11 +97,11 @@ describe("postflopVerdict", () => {
 
 describe("postflopLine", () => {
   it("has no postflop after an all-in or a walk", () => {
-    const pushed = spot({ depth: 8 });
+    const pushed = question({ depth: 8 });
     expect(postflopLine(pushed, advisePreflop(pushed)).ok).toBe(false);
-    const vsPush = spot({ depth: 8, position: "BB", situation: { kind: "push", pusher: "BTN" } });
+    const vsPush = question({ depth: 8, position: "BB", situation: { kind: "push", pusher: "BTN" } });
     expect(postflopLine(vsPush, advisePreflop(vsPush)).ok).toBe(false);
-    const walk = spot({ position: "BB" });
+    const walk = question({ position: "BB" });
     expect(postflopLine(walk, advisePreflop(walk)).ok).toBe(false);
   });
 
@@ -112,10 +119,10 @@ describe("postflopLine", () => {
 });
 
 describe("opponents", () => {
-  it("lists the seats that can still be in the pot", () => {
-    expect(opponentSeats(line({ position: "CO" }))).toEqual(["BTN", "SB", "BB"]);
-    expect(opponentSeats(line({ position: "BTN", situation: { kind: "open", opener: "HJ" } }))).toEqual(["HJ", "CO", "SB", "BB"]);
-    expect(opponentSeats(line({ players: 6, position: "CO", situation: { kind: "limps", limpers: "1" } }))).toEqual(["LJ", "HJ", "BTN", "SB", "BB"]);
+  it("lists the Positions that can still be in the pot", () => {
+    expect(opponentPositions(line({ position: "CO" }))).toEqual(["BTN", "SB", "BB"]);
+    expect(opponentPositions(line({ position: "BTN", situation: { kind: "open", opener: "HJ" } }))).toEqual(["HJ", "CO", "SB", "BB"]);
+    expect(opponentPositions(line({ players: 6, position: "CO", situation: { kind: "limps", limpers: "1" } }))).toEqual(["LJ", "HJ", "BTN", "SB", "BB"]);
   });
 
   it("defaults to the BB calling an open, the opener, or the limpers just before the hero", () => {
@@ -175,7 +182,7 @@ describe("opponentRange", () => {
     expect(rangeOf(iso, "BB").line).toBe("called your raise");
   });
 
-  it("rejects seats that folded before the flop", () => {
+  it("rejects Positions that folded before the flop", () => {
     expect(opponentRange(line({ position: "CO" }), { position: "HJ", type: "standard" }).ok).toBe(false);
     expect(opponentRange(line({ position: "CO" }), { position: "CO", type: "standard" }).ok).toBe(false);
   });
@@ -186,25 +193,36 @@ describe("solverLinkFor", () => {
 
   it("carries a heads-up Spot in bb, with the Preflop line when the Solver knows it", () => {
     const postflop = line({ position: "CO" });
-    const villain = rangeOf(postflop, "BB", "loose").range;
-    const link = solverLinkFor({ board, hand: hand("AsKd"), line: postflop, opponent: { position: "BB", range: villain }, pot: 5.5, stack: 47.5 });
+    const estimated = rangeOf(postflop, "BB", "loose").range;
+    const link = solverLinkFor({ board, hand: hand("AsKd"), line: postflop, opponent: { position: "BB", range: estimated }, pot: 5.5, stack: 47.5 });
     expect(link).toMatchObject({ board, depth: 50, hand: hand("AsKd"), line: { caller: "BB", kind: "open", opener: "CO" }, pot: 5.5, stack: 47.5 });
     const hero = getChart({ position: "CO", situation: "open", tier: "40bb+" }).actions[0].range;
-    expect(link.ranges).toEqual([villain, hero]);
+    expect(link.ranges).toEqual([estimated, hero]);
   });
 
   it("puts the hero first when the hero is out of position", () => {
     const postflop = line({ hand: hand("8c8d"), position: "BB", situation: { kind: "open", opener: "BTN" } });
-    const villain = rangeOf(postflop, "BTN").range;
-    const link = solverLinkFor({ board, hand: hand("8c8d"), line: postflop, opponent: { position: "BTN", range: villain }, pot: 5.5, stack: 47.5 });
+    const estimated = rangeOf(postflop, "BTN").range;
+    const link = solverLinkFor({ board, hand: hand("8c8d"), line: postflop, opponent: { position: "BTN", range: estimated }, pot: 5.5, stack: 47.5 });
     expect(link.line).toEqual({ caller: "BB", kind: "open", opener: "BTN" });
-    expect(link.ranges?.[1]).toEqual(villain);
+    expect(link.ranges?.[1]).toEqual(estimated);
   });
 
   it("uses the limp line for SB limp, BB check", () => {
     const postflop = line({ hand: hand("9c8d"), position: "SB" });
     const link = solverLinkFor({ board, hand: hand("9c8d"), line: postflop, opponent: { position: "BB", range: rangeOf(postflop, "BB").range }, pot: 2, stack: 49 });
     expect(link.line).toEqual({ kind: "limp" });
+  });
+
+  it("carries the Blind level with the line when the stack is in chips", () => {
+    const postflop = line({ position: "CO" });
+    const opponent = { position: "BB" as const, range: rangeOf(postflop, "BB").range };
+    expect(solverLinkFor({ board, hand: hand("AsKd"), level: 1, line: postflop, opponent, pot: 6, stack: 47.5 }).level).toBe(1);
+    expect(solverLinkFor({ board, hand: hand("AsKd"), line: postflop, opponent, pot: 5.5, stack: 47.5 }).level).toBeUndefined();
+    const threeBet = line({ hand: hand("AcAd"), position: "BTN", situation: { kind: "open", opener: "CO" } });
+    expect(
+      solverLinkFor({ board, hand: hand("AcAd"), level: 1, line: threeBet, opponent: { position: "CO", range: rangeOf(threeBet, "CO").range }, pot: 16, stack: 42.5 }).level,
+    ).toBeUndefined();
   });
 
   it("leaves the line out when the Solver has no such line, e.g. a 3-bet pot", () => {
@@ -215,10 +233,10 @@ describe("solverLinkFor", () => {
 
   it("round-trips through the Solver's URL format", () => {
     const postflop = line({ position: "CO" });
-    const villain = rangeOf(postflop, "BB").range;
-    const href = solverHref(solverLinkFor({ board, hand: hand("AsKd"), line: postflop, opponent: { position: "BB", range: villain }, pot: 5.5, stack: 47.5 }));
+    const estimated = rangeOf(postflop, "BB").range;
+    const href = solverHref(solverLinkFor({ board, hand: hand("AsKd"), line: postflop, opponent: { position: "BB", range: estimated }, pot: 5.5, stack: 47.5 }));
     const setup = parseSpotParams(new URL(href, "https://x.test").searchParams);
     expect(setup).toMatchObject({ board, depth: 50, hand: hand("AsKd"), line: { caller: "BB", kind: "open", opener: "CO" }, pot: 5.5, stack: 47.5 });
-    expect(setup.ranges[0]).toBe(formatRange(villain).replaceAll(" ", ""));
+    expect(setup.ranges[0]).toBe(formatRange(estimated).replaceAll(" ", ""));
   });
 });

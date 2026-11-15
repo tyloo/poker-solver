@@ -92,7 +92,7 @@ export class Solver {
   constructor(spot: Spot, options: SolverOptions = {}) {
     const sized = estimateSpot(spot, options.budgetBytes);
     if (!sized.ok) throw new Error(sized.error);
-    if (!sized.estimate.fits) throw new Error(overBudgetMessage(sized.estimate));
+    if (!sized.estimate.fits) throw new Error(overBudgetMessage(sized.estimate, spot));
     this.estimate = sized.estimate;
     this.spot = spot;
     this.tree = buildTree(spot);

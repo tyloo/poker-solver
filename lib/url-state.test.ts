@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { HAND_CLASS_NAMES } from "@/lib/poker/combo";
 import { codecs, withParam, withParams } from "./url-state";
 
 describe("withParam", () => {
@@ -49,5 +50,24 @@ describe("codecs", () => {
     expect(board.parse(null)).toBe("");
     expect(board.serialize("")).toBeNull();
     expect(board.serialize("AsKd")).toBe("AsKd");
+  });
+
+  it("handClass reads a Hand class by name and omits the fallback", () => {
+    const ak = HAND_CLASS_NAMES.indexOf("AKs");
+    const selected = codecs.handClass(null);
+    expect(selected.parse("AKs")).toBe(ak);
+    expect(selected.parse(null)).toBeNull();
+    expect(selected.parse("AKx")).toBeNull();
+    expect(selected.serialize(ak)).toBe("AKs");
+    expect(selected.serialize(null)).toBeNull();
+  });
+
+  it("handClass writes none to clear a non-null fallback, such as the hero's Hand class", () => {
+    const qq = HAND_CLASS_NAMES.indexOf("QQ");
+    const selected = codecs.handClass(qq);
+    expect(selected.parse(null)).toBe(qq);
+    expect(selected.parse("none")).toBeNull();
+    expect(selected.serialize(qq)).toBeNull();
+    expect(selected.serialize(null)).toBe("none");
   });
 });

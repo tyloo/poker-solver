@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import { RangeGrid } from "@/components/range-grid";
 import { pushFoldFrequencies } from "@/lib/charts/charts";
 import { depthSpans, describePushFold, largestDepths, PUSH_FOLD_DEPTHS, type PushFoldDepth, type PushFoldSeries, pushersFacing } from "@/lib/charts/push-fold";
+import { formatPercent } from "@/lib/format";
 import { HAND_CLASS_NAMES, type HandClassId, handClassCombos } from "@/lib/poker/combo";
+import { codecs, HAND_CLASS_PARAM, useUrlState } from "@/lib/url-state";
 
 const DEEPEST = PUSH_FOLD_DEPTHS[PUSH_FOLD_DEPTHS.length - 1];
 
@@ -27,7 +28,7 @@ const list = (items: readonly string[]) => (items.length > 1 ? `${items.slice(0,
 
 /** One grid for a Push or Vs push series: each Hand class shows the largest depth at which it is still played. */
 export function PushFoldView({ series }: { series: PushFoldSeries }) {
-  const [selected, setSelected] = useState<HandClassId | null>(null);
+  const [selected, setSelected] = useUrlState(HAND_CLASS_PARAM, codecs.handClass(null));
   const byDepth = pushFoldFrequencies(series);
   const largest = largestDepths(byDepth);
   const colour = series.situation === "push" ? "push" : "call";
@@ -40,7 +41,7 @@ export function PushFoldView({ series }: { series: PushFoldSeries }) {
   const summary = (cls: HandClassId) => {
     const spans = depthSpans(byDepth, cls);
     const mixed = PUSH_FOLD_DEPTHS.filter((depth) => byDepth[depth - 1][cls] > 0 && byDepth[depth - 1][cls] < 1).map(
-      (depth) => `${depth}bb ${Math.round(byDepth[depth - 1][cls] * 100)}%`,
+      (depth) => `${depth}bb ${formatPercent(byDepth[depth - 1][cls])}`,
     );
     const played = spans ? `${verb} at ${spans}` : `never ${verb} from 1 to ${DEEPEST}bb`;
     return `${HAND_CLASS_NAMES[cls]}, ${handClassCombos(cls).length} combos: ${played}.${mixed.length > 0 ? ` Mixed at ${list(mixed)}.` : ""}`;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cardId } from "@/lib/poker/card";
-import { actionColours, actionLabel, actionPhrase, actionShares, chanceLabel, formatBb } from "./display";
+import { actionColours, actionLabel, actionPhrase, actionShares, chanceLabel, formatBb, stepLabel } from "./display";
 import type { NodeView, RangeView } from "./solver";
 import type { SolverAction } from "./tree";
 
@@ -61,5 +61,23 @@ describe("actionShares", () => {
 
   it("is empty away from decisions", () => {
     expect(actionShares({ actions: [], player: null } as unknown as NodeView)).toEqual([]);
+  });
+});
+
+describe("stepLabel", () => {
+  const board = ["Ks", "7d", "2h", "9c"].map((text) => cardId({ rank: text[0] as "K", suit: text[1] as "s" }));
+  const players = ["BB", "BTN"] as const;
+
+  it("names the step from a node: the action taken, or the card dealt", () => {
+    const decision = { actions: [act("check"), act("bet", 182)], board, cards: [], kind: "action" as const, player: 1 as const };
+    expect(stepLabel(decision, 1, players)).toBe("BTN bets 1.82bb");
+    const chance = { actions: [], board: board.slice(0, 3), cards: [board[3]], kind: "chance" as const, player: null };
+    expect(stepLabel(chance, 0, players)).toBe("Turn 9c");
+  });
+
+  it("returns null for an index the node does not have, e.g. a stale path", () => {
+    const decision = { actions: [act("check")], board, cards: [], kind: "action" as const, player: 0 as const };
+    expect(stepLabel(decision, 3, players)).toBeNull();
+    expect(stepLabel({ ...decision, actions: [], kind: "showdown" as const, player: null }, 0, players)).toBeNull();
   });
 });

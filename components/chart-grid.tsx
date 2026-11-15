@@ -3,6 +3,7 @@
 import { RangeGrid } from "@/components/range-grid";
 import type { Chart } from "@/lib/charts/chart-files";
 import type { ActionColour } from "@/lib/charts/model";
+import { formatPercent } from "@/lib/format";
 import { COMBO_COUNT, HAND_CLASS_NAMES, type HandClassId, handClassCombos } from "@/lib/poker/combo";
 import { handClassWeights, type Range } from "@/lib/poker/range";
 
@@ -11,14 +12,12 @@ export const actionColor = (colour: ActionColour) => `var(--color-${colour})`;
 /** Share of all 1326 Combos in a Range, e.g. "11.6%". */
 export const rangeShare = (range: Range) => `${((range.reduce((sum, weight) => sum + weight, 0) / COMBO_COUNT) * 100).toFixed(1)}%`;
 
-const percent = (weight: number) => `${Math.round(weight * 100)}%`;
-
 /** Action frequencies of one Hand class, largest first, e.g. "Raise 70%, Fold 30%". */
 export function classFrequencies(actions: readonly { label: string; weights: Float64Array }[], cls: HandClassId): string {
   return actions
     .filter((action) => action.weights[cls] > 0)
     .sort((a, b) => b.weights[cls] - a.weights[cls])
-    .map((action) => `${action.label} ${percent(action.weights[cls])}`)
+    .map((action) => `${action.label} ${formatPercent(action.weights[cls])}`)
     .join(", ");
 }
 

@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { textButton } from "@/components/buttons";
 import { GLOSSARY } from "@/content/glossary";
 import { filterTerms, groupByTopic } from "@/lib/glossary/glossary";
 import { codecs, useUrlState } from "@/lib/url-state";
 import { GlossaryList } from "./glossary-list";
 
-const textButton = "h-12 rounded-full px-4 font-bold text-dust underline decoration-2 underline-offset-4 hover:text-chalk focus-visible:outline-3 focus-visible:outline-chalk";
 const queryCodec = codecs.string("");
 
 export function FilterField({ value, onChange, onClear }: { value: string; onChange?: (value: string) => void; onClear?: () => void }) {

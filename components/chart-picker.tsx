@@ -79,7 +79,7 @@ function normalise(selection: BrowseSelection): BrowseSelection {
   };
 }
 
-function seatsFor(situation: BrowseSelection["situation"]): readonly Position[] {
+function positionsFor(situation: BrowseSelection["situation"]): readonly Position[] {
   if (situation === "push") return PUSH_POSITIONS;
   if (situation === "vs-push") return callerPositions("early");
   return heroPositions(situation);
@@ -91,7 +91,7 @@ export function ChartPicker(props: PickerProps) {
   const onChange = props.onChange as (value: BrowseSelection) => void;
   const current = normalise(props.value);
   const change = (patch: Partial<BrowseSelection>) => onChange(normalise({ ...current, ...patch }));
-  const seats = seatsFor(current.situation);
+  const positions = positionsFor(current.situation);
   const situations = [
     ...SITUATIONS.map((situation) => ({ label: SITUATION_LABELS[situation], value: situation })),
     ...(pushFold ? PUSH_FOLD_SITUATIONS.map((situation) => ({ label: PUSH_FOLD_SITUATION_LABELS[situation], value: situation })) : []),
@@ -102,7 +102,7 @@ export function ChartPicker(props: PickerProps) {
       <Segmented legend="Situation" options={situations} value={current.situation} onChange={(situation) => change({ situation })} wrap={pushFold} />
       <Segmented
         legend="Your position"
-        options={POSITIONS.map((position) => ({ disabled: !seats.includes(position), label: position, value: position }))}
+        options={POSITIONS.map((position) => ({ disabled: !positions.includes(position), label: position, value: position }))}
         value={current.position}
         onChange={(position) => change({ position })}
       />

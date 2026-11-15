@@ -1,4 +1,4 @@
-import { POSITIONS, type Position, STACK_TIER_LABELS, STACK_TIERS, type StackTier } from "@/lib/poker/table";
+import { POSITIONS, type Position, preflopOrder, STACK_TIER_LABELS, STACK_TIERS, type StackTier } from "@/lib/poker/table";
 
 /** Situations with raising Charts. Push and Vs push have their own Push/fold charts. */
 export const SITUATIONS = ["open", "vs-open", "vs-limpers"] as const;
@@ -26,14 +26,12 @@ export function openerGroupOf(position: Position): OpenerGroup | null {
   return OPENER_GROUPS.find((group) => OPENER_GROUP_POSITIONS[group].includes(position)) ?? null;
 }
 
-const seat = (position: Position) => POSITIONS.indexOf(position);
-
 /** Positions the hero can hold in a Situation; with a group, only those that can face it. */
 export function heroPositions(situation: Situation, group?: OpenerGroup | LimperGroup): Position[] {
   if (situation === "open") return POSITIONS.filter((position) => position !== "BB");
   // The hero acts after the earliest opener of the group, or after at least one or two limpers.
-  const first = situation === "vs-open" ? seat(OPENER_GROUP_POSITIONS[(group as OpenerGroup | undefined) ?? "early"][0]) : group === "2+" ? 1 : 0;
-  return POSITIONS.filter((position) => seat(position) > first);
+  const first = situation === "vs-open" ? preflopOrder(OPENER_GROUP_POSITIONS[(group as OpenerGroup | undefined) ?? "early"][0]) : group === "2+" ? 1 : 0;
+  return POSITIONS.filter((position) => preflopOrder(position) > first);
 }
 
 export function groupAvailable(situation: Situation, position: Position, group: OpenerGroup | LimperGroup): boolean {

@@ -5,7 +5,7 @@ import { blindLevel } from "@/lib/poker/blinds";
 import { type CardId, cardFromId, cardId, formatCards, parseCards } from "@/lib/poker/card";
 import { MAX_PLAYERS, MIN_PLAYERS, POSITIONS, type Position, tablePositions } from "@/lib/poker/table";
 import type { Opponent } from "./postflop";
-import type { PreflopSpot } from "./preflop";
+import type { PreflopQuestion } from "./preflop";
 
 export const SITUATION_KINDS = ["folded", "limps", "open", "push"] as const;
 export type SituationKind = (typeof SITUATION_KINDS)[number];
@@ -174,18 +174,18 @@ export const bigBlindChips = (stack: StackEntry): number | undefined => (stack.u
 /** An amount in the stack's unit (chips or bb), in bb. */
 export const toUnit = (amount: number, stack: StackEntry): number => amount / (bigBlindChips(stack) ?? 1);
 
-export type SpotOrMissing = { spot: PreflopSpot } | { missing: "hand" | "position" | "opener" | "pusher" };
+export type QuestionOrMissing = { question: PreflopQuestion } | { missing: "hand" | "position" | "opener" | "pusher" };
 
 /** The preflop question, or the first input still missing. */
-export function preflopSpot(setup: AdvisorSetup): SpotOrMissing {
+export function preflopQuestion(setup: AdvisorSetup): QuestionOrMissing {
   const { hand, players, position, situation } = setup;
   if (hand.length !== 2) return { missing: "hand" };
   if (!position || !tablePositions(players).includes(position)) return { missing: "position" };
   const base = { depth: stackDepthOf(setup.stack), hand: [hand[0], hand[1]] as const, players, position };
-  if (situation === "folded") return { spot: { ...base, situation: { kind: "folded" } } };
-  if (situation === "limps") return { spot: { ...base, situation: { kind: "limps", limpers: setup.limpers } } };
-  if (situation === "open") return setup.opener ? { spot: { ...base, situation: { kind: "open", opener: setup.opener } } } : { missing: "opener" };
-  return setup.pusher ? { spot: { ...base, situation: { kind: "push", pusher: setup.pusher } } } : { missing: "pusher" };
+  if (situation === "folded") return { question: { ...base, situation: { kind: "folded" } } };
+  if (situation === "limps") return { question: { ...base, situation: { kind: "limps", limpers: setup.limpers } } };
+  if (situation === "open") return setup.opener ? { question: { ...base, situation: { kind: "open", opener: setup.opener } } } : { missing: "opener" };
+  return setup.pusher ? { question: { ...base, situation: { kind: "push", pusher: setup.pusher } } } : { missing: "pusher" };
 }
 
 /** A typed amount: accepts "12 500" and "12,500", and for bb the decimal comma "12,5". Null when empty or invalid. */

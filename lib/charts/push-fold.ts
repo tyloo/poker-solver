@@ -1,5 +1,5 @@
 import { HAND_CLASS_COUNT } from "@/lib/poker/combo";
-import { POSITIONS, type Position } from "@/lib/poker/table";
+import { POSITIONS, type Position, preflopOrder } from "@/lib/poker/table";
 import { type ActionRange, actionRanges, type ChartEntry, entryErrors } from "./chart-files";
 import {
   action,
@@ -32,16 +32,14 @@ export type PusherGroup = OpenerGroup;
 /** Every Position but the BB, which is never folded to. */
 export const PUSH_POSITIONS = POSITIONS.filter((position) => position !== "BB");
 
-const seat = (position: Position) => POSITIONS.indexOf(position);
-
 /** Positions that can face a push from the group: those behind its earliest Position. */
 export function callerPositions(pusher: PusherGroup): Position[] {
-  return POSITIONS.filter((position) => seat(position) > seat(OPENER_GROUP_POSITIONS[pusher][0]));
+  return POSITIONS.filter((position) => preflopOrder(position) > preflopOrder(OPENER_GROUP_POSITIONS[pusher][0]));
 }
 
 /** Pushers of the group that act before `caller`; its Vs push chart averages the call frequencies solved against each. */
 export function pushersFacing(caller: Position, pusher: PusherGroup): Position[] {
-  return OPENER_GROUP_POSITIONS[pusher].filter((position) => seat(position) < seat(caller));
+  return OPENER_GROUP_POSITIONS[pusher].filter((position) => preflopOrder(position) < preflopOrder(caller));
 }
 
 /** Push/fold charts across every depth: one Position pushing, or one caller facing a pusher group. */

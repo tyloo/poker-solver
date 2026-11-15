@@ -36,7 +36,7 @@ describe("heroPositions", () => {
     expect(heroPositions("open")).toEqual(["UTG", "UTG+1", "LJ", "HJ", "CO", "BTN", "SB"]);
   });
 
-  it("only seats the hero after an opener of the group", () => {
+  it("only puts the hero after an opener of the group", () => {
     expect(heroPositions("vs-open", "early")).toEqual(["UTG+1", "LJ", "HJ", "CO", "BTN", "SB", "BB"]);
     expect(heroPositions("vs-open", "middle")).toEqual(["HJ", "CO", "BTN", "SB", "BB"]);
     expect(heroPositions("vs-open", "late")).toEqual(["BTN", "SB", "BB"]);

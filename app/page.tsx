@@ -7,7 +7,7 @@ import { AdvisorTool } from "./advisor-tool";
 export default function AdvisorPage() {
   return (
     <>
-      <ToolHeader title="Advisor" lede="Pick your hand, seat and stack, and get the play from your charts." />
+      <ToolHeader title="Advisor" lede="Pick your hand, position and stack, and get the play from your charts." />
       <Suspense
         fallback={
           <div className="flex items-stretch gap-4">

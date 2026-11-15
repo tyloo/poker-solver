@@ -3,10 +3,10 @@ import { type ActionId, type ChartKey, chartKeyFor, DEFAULT_SELECTION, openerGro
 import { PLAYER_TYPE_LABELS, type PlayerType } from "@/lib/charts/player-types";
 import type { CardId } from "@/lib/poker/card";
 import type { Range } from "@/lib/poker/range";
-import { POSITIONS, type Position, tablePositions } from "@/lib/poker/table";
+import { type Position, postflopOrder, preflopOrder, tablePositions } from "@/lib/poker/table";
 import { isValidLine, type PreflopLine } from "@/lib/solver/preflop-line";
 import type { SolverLink } from "@/lib/solver/spot-url";
-import { type PreflopAdvice, type PreflopSpot, seatsBefore } from "./preflop";
+import { type PreflopAdvice, type PreflopQuestion, positionsBefore } from "./preflop";
 
 /** Facing a bet, an SPR at or below this turns a call into a push. */
 export const LOW_SPR = 2;
@@ -60,34 +60,32 @@ export function postflopVerdict({ equity, opponents, ...amounts }: PostflopAmoun
 }
 
 /** How the hero reached the flop: their raising Chart and the action they took from it. */
-export type PostflopLine = { spot: PreflopSpot; key: ChartKey; heroAction: ActionId };
+export type PostflopLine = { question: PreflopQuestion; key: ChartKey; heroAction: ActionId };
 
-export function postflopLine(spot: PreflopSpot, advice: PreflopAdvice): { ok: true; line: PostflopLine } | { ok: false; reason: string } {
+export function postflopLine(question: PreflopQuestion, advice: PreflopAdvice): { ok: true; line: PostflopLine } | { ok: false; reason: string } {
   if (advice.kind !== "advice") return { ok: false, reason: advice.reason };
   if (advice.chart.kind === "push-fold") return { ok: false, reason: "Push/fold hands go all-in preflop, so there is no postflop decision." };
   // A hand the Chart folds is assumed to have played its most frequent other action (or the Chart's first one).
   const played = advice.actions.filter((action) => action.id !== "fold");
   const action = played.reduce((best, next) => (next.frequency > best.frequency ? next : best));
-  return { line: { heroAction: action.id, key: advice.chart.key, spot }, ok: true };
+  return { line: { heroAction: action.id, key: advice.chart.key, question }, ok: true };
 }
 
-const seat = (position: Position) => POSITIONS.indexOf(position);
-
-/** Seats that can still be in the pot. */
-export function opponentSeats({ spot }: PostflopLine): Position[] {
-  const { players, position, situation } = spot;
+/** Positions that can still be in the pot. */
+export function opponentPositions({ question }: PostflopLine): Position[] {
+  const { players, position, situation } = question;
   const others = tablePositions(players).filter((other) => other !== position);
-  if (situation.kind === "folded") return others.filter((other) => seat(other) > seat(position));
-  if (situation.kind === "open") return others.filter((other) => seat(other) >= seat(situation.opener));
+  if (situation.kind === "folded") return others.filter((other) => preflopOrder(other) > preflopOrder(position));
+  if (situation.kind === "open") return others.filter((other) => preflopOrder(other) >= preflopOrder(situation.opener));
   return others;
 }
 
 /** Likely opponents: the BB against an open, the opener, or the limpers just before the hero. */
 export function defaultOpponents(line: PostflopLine): Position[] {
-  const { players, position, situation } = line.spot;
+  const { players, position, situation } = line.question;
   if (situation.kind === "folded") return ["BB"];
   if (situation.kind === "open") return [situation.opener];
-  if (situation.kind === "limps") return seatsBefore(players, position).slice(situation.limpers === "1" ? -1 : -2);
+  if (situation.kind === "limps") return positionsBefore(players, position).slice(situation.limpers === "1" ? -1 : -2);
   return [];
 }
 
@@ -97,11 +95,11 @@ export type OpponentRange = { ok: true; range: Range; line: string; note: string
 
 /** The estimated Range of an opponent of a Player type, from the Preflop line. */
 export function opponentRange(line: PostflopLine, { position, type }: Opponent): OpponentRange {
-  if (!opponentSeats(line).includes(position)) return { error: `${position} folded before the flop.`, ok: false };
-  const { spot, key, heroAction } = line;
+  if (!opponentPositions(line).includes(position)) return { error: `${position} folded before the flop.`, ok: false };
+  const { question, key, heroAction } = line;
   const { tier } = key;
-  const hero = spot.position;
-  const { situation } = spot;
+  const hero = question.position;
+  const { situation } = question;
   const name = PLAYER_TYPE_LABELS[type];
 
   const from = (chart: ChartKey, action: ActionId, description: string, note: string | null = null): OpponentRange => {
@@ -125,7 +123,7 @@ export function opponentRange(line: PostflopLine, { position, type }: Opponent):
     return callerOf(hero, "called your open");
   }
   // Behind limpers.
-  if (seat(position) < seat(hero)) {
+  if (preflopOrder(position) < preflopOrder(hero)) {
     if (estimateRange(type, { position, situation: "open", tier }, "limp")) return from({ position, situation: "open", tier }, "limp", "limped");
     const overlimp = chartKeyFor({ ...DEFAULT_SELECTION, limpers: "1", position, situation: "vs-limpers", tier });
     return from(overlimp, "limp", "limped", `${name} players never open-limp from ${position} in the repo data, so this is their overlimp Range.`);
@@ -142,13 +140,10 @@ export function heroRange({ key, heroAction }: PostflopLine): Range {
   return range;
 }
 
-/** Postflop the blinds act first, then the rest in seat order. */
-const postflopOrder = (position: Position) => (position === "SB" ? -2 : position === "BB" ? -1 : seat(position));
-
 /** The Solver's Preflop line for a heads-up pot, when it has one (single-raised or SB limp, BB check). */
-function solverLine({ spot, heroAction }: PostflopLine, opponent: Position): PreflopLine | undefined {
-  const hero = spot.position;
-  const { situation } = spot;
+function solverLine({ question, heroAction }: PostflopLine, opponent: Position): PreflopLine | undefined {
+  const hero = question.position;
+  const { situation } = question;
   const pair = (opener: Position, caller: Position): PreflopLine | undefined => {
     if (opener === "BB") return undefined;
     const line: PreflopLine = { caller, kind: "open", opener };
@@ -171,10 +166,12 @@ export function solverLinkFor(input: {
   hand: readonly CardId[];
   pot: number;
   stack: number;
+  /** The Blind level, when the stack is entered in chips. */
+  level?: number;
 }): SolverLink {
-  const { line, opponent, board, hand, pot, stack } = input;
+  const { line, opponent, board, hand, pot, stack, level } = input;
   const hero = heroRange(line);
-  const heroFirst = postflopOrder(line.spot.position) < postflopOrder(opponent.position);
+  const heroFirst = postflopOrder(line.question.position) < postflopOrder(opponent.position);
   const preflop = solverLine(line, opponent.position);
   return {
     board,
@@ -182,6 +179,6 @@ export function solverLinkFor(input: {
     pot,
     ranges: heroFirst ? [hero, opponent.range] : [opponent.range, hero],
     stack,
-    ...(preflop && { depth: line.spot.depth, line: preflop }),
+    ...(preflop && { depth: line.question.depth, line: preflop, ...(level !== undefined && { level }) }),
   };
 }

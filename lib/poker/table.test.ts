@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { OPEN_SIZE_BB, POSITIONS, stackTierFor, tablePositions } from "./table";
 
 describe("tablePositions", () => {
-  it("seats all eight Positions at a full table", () => {
+  it("has all eight Positions at a full table", () => {
     expect(tablePositions(8)).toEqual(POSITIONS);
   });
 

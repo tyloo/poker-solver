@@ -10,19 +10,20 @@ import { OvalTable } from "@/components/oval-table";
 import { PlayingCard } from "@/components/playing-card";
 import { VerdictCard } from "@/components/verdict-card";
 import { BLIND_STRUCTURE } from "@/content/blind-structure";
-import { advisePreflop, limperGroupsFor, type PreflopAdvice, seatsBefore, verdictSize } from "@/lib/advisor/preflop";
+import { advisePreflop, limperGroupsFor, type PreflopAdvice, positionsBefore, verdictSize } from "@/lib/advisor/preflop";
 import {
   type AdvisorSetup,
   advisorParams,
   bigBlindChips,
   parseAdvisorParams,
-  preflopSpot,
+  preflopQuestion,
+  type QuestionOrMissing,
   SITUATION_KINDS,
   type SituationKind,
-  type SpotOrMissing,
   type StackEntry,
   stackDepthOf,
 } from "@/lib/advisor/setup";
+import { formatPercent } from "@/lib/format";
 import { blindLevels } from "@/lib/poker/blinds";
 import { cardFromId } from "@/lib/poker/card";
 import { MAX_PLAYERS, MIN_PLAYERS, type Position, STACK_TIER_LABELS, stackTierFor, tablePositions } from "@/lib/poker/table";
@@ -32,10 +33,9 @@ import { AdvisorPostflop } from "./advisor-postflop";
 const LEVELS = blindLevels(BLIND_STRUCTURE, 15);
 const PLAYER_COUNTS = Array.from({ length: MAX_PLAYERS - MIN_PLAYERS + 1 }, (_, i) => String(MIN_PLAYERS + i));
 const SITUATION_LABELS: Record<SituationKind, string> = { folded: "Folded", limps: "Limps", open: "Open", push: "Push" };
-const PROMPTS = { hand: "Pick your hand", opener: "Who opened?", position: "Tap your seat", pusher: "Who pushed?" } as const;
+const PROMPTS = { hand: "Pick your hand", opener: "Who opened?", position: "Tap your position", pusher: "Who pushed?" } as const;
 
 const chips = (value: number) => value.toLocaleString("en-US");
-const percent = (share: number) => `${Math.round(share * 100)}%`;
 const linkClass = "font-bold text-chalk underline decoration-2 underline-offset-4 focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-2";
 
 export type Update = (patch: Partial<AdvisorSetup>, history?: "push" | "replace") => void;
@@ -52,7 +52,7 @@ function Frequencies({ actions }: { actions: Extract<PreflopAdvice, { kind: "adv
         {actions.map((action) => (
           <li key={action.id} className={`flex items-center gap-2 ${action.frequency > 0 ? "" : "text-dust"}`}>
             <span aria-hidden="true" className="size-3.5 rounded-[3px] border border-dust/40" style={{ background: `var(--color-${action.colour})` }} />
-            {action.label} {percent(action.frequency)}
+            {action.label} {formatPercent(action.frequency)}
           </li>
         ))}
       </ul>
@@ -60,7 +60,7 @@ function Frequencies({ actions }: { actions: Extract<PreflopAdvice, { kind: "adv
   );
 }
 
-function Answer({ setup, prepared, advice, onPickHand }: { setup: AdvisorSetup; prepared: SpotOrMissing; advice: PreflopAdvice | null; onPickHand: () => void }) {
+function Answer({ setup, prepared, advice, onPickHand }: { setup: AdvisorSetup; prepared: QuestionOrMissing; advice: PreflopAdvice | null; onPickHand: () => void }) {
   const [first, second] = setup.hand;
 
   let card: Parameters<typeof VerdictCard>[0]["verdict"] = null;
@@ -71,7 +71,7 @@ function Answer({ setup, prepared, advice, onPickHand }: { setup: AdvisorSetup; 
     const { verdict } = advice;
     const frequency = verdict.action.frequency;
     card = {
-      aside: frequency >= 1 ? "Every time" : `${percent(frequency)} of the time`,
+      aside: frequency >= 1 ? "Every time" : `${formatPercent(frequency)} of the time`,
       colour: verdict.action.colour,
       detail: verdictSize(verdict, bigBlindChips(setup.stack)),
       title: verdict.title,
@@ -119,10 +119,10 @@ function Answer({ setup, prepared, advice, onPickHand }: { setup: AdvisorSetup; 
 
 function SituationPicker({ setup, update }: { setup: AdvisorSetup; update: Update }) {
   const { players, position, situation } = setup;
-  const seats = tablePositions(players);
-  const before = position ? seatsBefore(players, position) : seats;
+  const atTable = tablePositions(players);
+  const before = position ? positionsBefore(players, position) : atTable;
   const limperGroups = position ? limperGroupsFor(players, position) : (["1", "2+"] as const);
-  const byOptions = seats.filter((seat) => seat !== "BB").map((seat) => ({ disabled: !before.includes(seat), label: seat, value: seat }));
+  const byOptions = atTable.filter((other) => other !== "BB").map((other) => ({ disabled: !before.includes(other), label: other, value: other }));
   const choose = (next: SituationKind) => {
     const limpers = next === "limps" && !limperGroups.includes(setup.limpers) ? limperGroups[0] : undefined;
     update({ situation: next, ...(limpers && { limpers }) });
@@ -229,21 +229,21 @@ export function AdvisorTool() {
   const setup = parseAdvisorParams(params);
   const [picking, setPicking] = useState(false);
   const update: Update = (patch, history = "push") => setUrlParams(advisorParams(patch), history);
-  const prepared = preflopSpot(setup);
-  const advice = "spot" in prepared ? advisePreflop(prepared.spot) : null;
+  const prepared = preflopQuestion(setup);
+  const advice = "question" in prepared ? advisePreflop(prepared.question) : null;
 
-  const sitAt = (position: Position) => {
-    const before = seatsBefore(setup.players, position);
+  const takePosition = (position: Position) => {
+    const before = positionsBefore(setup.players, position);
     update({
       position,
       ...(setup.opener && !before.includes(setup.opener) && { opener: null }),
       ...(setup.pusher && !before.includes(setup.pusher) && { pusher: null }),
     });
   };
-  const seatPlayers = (players: number) => {
-    const seats = tablePositions(players);
-    const seated = (position: Position | null) => position === null || seats.includes(position);
-    update({ players, ...(!seated(setup.position) && { position: null }), ...(!seated(setup.opener) && { opener: null }), ...(!seated(setup.pusher) && { pusher: null }) });
+  const setPlayers = (players: number) => {
+    const atTable = tablePositions(players);
+    const kept = (position: Position | null) => position === null || atTable.includes(position);
+    update({ players, ...(!kept(setup.position) && { position: null }), ...(!kept(setup.opener) && { opener: null }), ...(!kept(setup.pusher) && { pusher: null }) });
   };
   const marks: Partial<Record<Position, string>> = {};
   if (setup.situation === "open" && setup.opener) marks[setup.opener] = "Opened";
@@ -261,14 +261,14 @@ export function AdvisorTool() {
           legend="Players"
           options={PLAYER_COUNTS.map((count) => ({ label: count, value: count }))}
           value={String(setup.players)}
-          onChange={(count) => seatPlayers(Number(count))}
+          onChange={(count) => setPlayers(Number(count))}
         />
-        <OvalTable players={setup.players} position={setup.position} onPosition={sitAt} marks={marks} />
+        <OvalTable players={setup.players} position={setup.position} onPosition={takePosition} marks={marks} />
       </section>
 
       <SituationPicker setup={setup} update={update} />
       <StackPicker stack={setup.stack} update={update} />
-      <AdvisorPostflop setup={setup} spot={"spot" in prepared ? prepared.spot : null} advice={advice} update={update} />
+      <AdvisorPostflop setup={setup} question={"question" in prepared ? prepared.question : null} advice={advice} update={update} />
 
       {picking && (
         <CardKeypadSheet

@@ -1,3 +1,5 @@
+import { BLIND_STRUCTURE } from "@/content/blind-structure";
+import { blindLevel } from "@/lib/poker/blinds";
 import { formatRange, parseRange, type Range } from "@/lib/poker/range";
 import { linePlayers, lineSpot } from "./preflop-line";
 import { PLAYER_NAMES, type Spot, validateSpot } from "./spot";
@@ -43,7 +45,7 @@ export type ResolvedSetup = {
 
 /** Turns the URL setup into a Spot, filling what the URL leaves out from the Preflop line. */
 export function resolveSetup(setup: SpotSetup): ResolvedSetup {
-  const line = setup.line ? lineSpot(setup.line, setup.depth) : null;
+  const line = setup.line ? lineSpot(setup.line, setup.depth, blindLevel(BLIND_STRUCTURE, setup.level)) : null;
   const fromLine = line?.ok ? line : null;
   const players: [string, string] = setup.line ? linePlayers(setup.line) : [PLAYER_NAMES[0], PLAYER_NAMES[1]];
   const street = STREETS[setup.board.length] ?? null;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateSpot, MEMORY_BUDGET_BYTES } from "./estimate";
+import { estimateSpot, MEMORY_BUDGET_BYTES, overBudgetMessage } from "./estimate";
 import { Solver } from "./solver";
 import { spot } from "./test-helpers";
 
@@ -25,7 +25,7 @@ describe("estimateSpot", () => {
     const flop = spot({ betSizes: [0.75], board: "Kd 9s 6c", effectiveStack: 1750, ip: WIDE, oop: WIDE, pot: 550 });
     const result = estimateSpot(flop);
     expect(result.ok && result.estimate.fits).toBe(false);
-    expect(() => new Solver(flop)).toThrow(/narrow the Ranges/i);
+    expect(() => new Solver(flop)).toThrow(/narrow the ranges/i);
   });
 
   it("scales with the Ranges, so narrowing them can bring a flop Spot under budget", () => {
@@ -39,5 +39,34 @@ describe("estimateSpot", () => {
 
   it("reports an invalid Spot instead of an estimate", () => {
     expect(estimateSpot(spot({ board: "Kd 9s", ip: NARROW, oop: NARROW }))).toEqual({ error: expect.stringMatching(/board/), ok: false });
+  });
+});
+
+describe("overBudgetMessage", () => {
+  const over = (target: ReturnType<typeof spot>) => {
+    const result = estimateSpot(target, 1);
+    if (!result.ok || result.estimate.fits) throw new Error("expected an over-budget estimate");
+    return overBudgetMessage(result.estimate, target);
+  };
+
+  it("offers only what the setup can change: narrower ranges, fewer bet sizes, a later street", () => {
+    const turn = spot({ board: "Kd 9s 6c 2h", ip: NARROW, oop: NARROW });
+    expect(over(turn)).toMatch(/^This spot needs about \d+ MB, above the 1 MB budget\. Narrow the ranges, drop a bet size or start from a later street\.$/);
+  });
+
+  it("does not offer a bet size to drop when there is one, nor a later street on the river", () => {
+    expect(over(spot({ betSizes: [0.75], board: "Kd 9s 6c", ip: NARROW, oop: NARROW }))).toMatch(/Narrow the ranges or start from a later street\.$/);
+    expect(over(spot({ betSizes: [0.75], board: "Kd 9s 6c 2h 2d", ip: NARROW, oop: NARROW }))).toMatch(/Narrow the ranges\.$/);
+  });
+
+  it("never mentions a raise cap, which the setup does not offer", () => {
+    expect(over(spot({ board: "Kd 9s 6c 2h", ip: NARROW, oop: NARROW }))).not.toMatch(/raise cap/);
+  });
+
+  it("is the message the engine refuses with", () => {
+    const flop = spot({ betSizes: [0.75], board: "Kd 9s 6c", effectiveStack: 1750, ip: WIDE, oop: WIDE, pot: 550 });
+    const result = estimateSpot(flop);
+    if (!result.ok) throw new Error(result.error);
+    expect(() => new Solver(flop)).toThrow(overBudgetMessage(result.estimate, flop));
   });
 });

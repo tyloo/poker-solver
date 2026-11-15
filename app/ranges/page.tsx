@@ -14,7 +14,7 @@ export default function RangesPage() {
 
   return (
     <>
-      <ToolHeader title="Ranges" lede="Your preflop charts by situation, seat and stack depth." />
+      <ToolHeader title="Ranges" lede="Your preflop charts by situation, position and stack depth." />
       <Suspense
         fallback={
           <div aria-hidden="true" className="grid grid-cols-13 gap-px">

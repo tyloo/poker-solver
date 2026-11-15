@@ -3,12 +3,18 @@ export const POSITIONS = ["UTG", "UTG+1", "LJ", "HJ", "CO", "BTN", "SB", "BB"] a
 
 export type Position = (typeof POSITIONS)[number];
 
+/** Where a Position acts preflop: 0 for UTG to 7 for the BB. */
+export const preflopOrder = (position: Position) => POSITIONS.indexOf(position);
+
+/** Where a Position acts postflop: the blinds first, then the rest in preflop order. */
+export const postflopOrder = (position: Position) => (position === "SB" ? -2 : position === "BB" ? -1 : preflopOrder(position));
+
 export const MIN_PLAYERS = 2;
 export const MAX_PLAYERS = POSITIONS.length;
 
-/** Positions seated at a table of `players`; short-handed tables drop the earliest Positions first. */
+/** Positions at a table of `players`; short-handed tables drop the earliest Positions first. */
 export function tablePositions(players: number): readonly Position[] {
-  if (!Number.isInteger(players) || players < MIN_PLAYERS || players > MAX_PLAYERS) throw new Error(`A table seats ${MIN_PLAYERS} to ${MAX_PLAYERS} players, not ${players}`);
+  if (!Number.isInteger(players) || players < MIN_PLAYERS || players > MAX_PLAYERS) throw new Error(`A table has ${MIN_PLAYERS} to ${MAX_PLAYERS} players, not ${players}`);
   return POSITIONS.slice(MAX_PLAYERS - players);
 }
 

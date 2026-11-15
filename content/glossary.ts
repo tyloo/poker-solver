@@ -279,28 +279,28 @@ export const GLOSSARY: readonly GlossaryTerm[] = [
   },
   {
     abbreviation: "UTG+1",
-    definition: "The seat after UTG, second to act before the flop.",
+    definition: "The Position after UTG, second to act before the flop.",
     id: "utg-plus-1",
     term: "Under the gun +1",
     topic: "table",
   },
   {
     abbreviation: "LJ",
-    definition: "Lojack, the seat after UTG+1 and three before the button. At a 6-handed table it is the first to act.",
+    definition: "Lojack, the Position after UTG+1 and three before the button. At a 6-handed table it is the first to act.",
     id: "lj",
     term: "Lojack",
     topic: "table",
   },
   {
     abbreviation: "HJ",
-    definition: "Hijack, the seat two before the button.",
+    definition: "Hijack, two Positions before the button.",
     id: "hj",
     term: "Hijack",
     topic: "table",
   },
   {
     abbreviation: "CO",
-    definition: "Cutoff, the seat just before the button. One of the best seats to open from.",
+    definition: "Cutoff, the Position just before the button. One of the best Positions to open from.",
     id: "co",
     term: "Cutoff",
     topic: "table",
@@ -308,21 +308,21 @@ export const GLOSSARY: readonly GlossaryTerm[] = [
   {
     abbreviation: "BTN",
     aliases: ["Dealer", "D"],
-    definition: "The dealer seat, marked D on the table. It acts last on every street after the flop, which makes it the best seat at the table.",
+    definition: "The dealer Position, marked D on the table. It acts last on every street after the flop, which makes it the best Position at the table.",
     id: "btn",
     term: "Button",
     topic: "table",
   },
   {
     abbreviation: "SB",
-    definition: "The small blind: the seat left of the button, which posts the smaller forced bet. It acts first on every street after the flop.",
+    definition: "The small blind: the Position left of the button, which posts the smaller forced bet. It acts first on every street after the flop.",
     id: "sb",
     term: "Small blind",
     topic: "table",
   },
   {
     abbreviation: "BB",
-    definition: "The big blind: the seat left of the small blind, which posts the bigger forced bet. It acts last before the flop.",
+    definition: "The big blind: the Position left of the small blind, which posts the bigger forced bet. It acts last before the flop.",
     id: "big-blind",
     term: "Big blind",
     topic: "table",
@@ -390,7 +390,7 @@ export const GLOSSARY: readonly GlossaryTerm[] = [
   },
   {
     definition:
-      "One step of the Blind structure, written small blind / big blind in chips. At level 1 (50/50) both blinds are the same, and the app uses the real blinds in its pot maths.",
+      "One step of the Blind structure, written small blind / big blind in chips. At level 1 (50/50) both blinds are the same, and the app uses the real blinds in its pot maths. The Solver's Preflop line takes a Blind level too.",
     example: "Level 5 is 200/400.",
     id: "blind-level",
     term: "Blind level",
@@ -515,7 +515,7 @@ export const GLOSSARY: readonly GlossaryTerm[] = [
   },
   {
     aliases: ["Ranges"],
-    definition: "All the hands a player could have in a spot, each with a weight. You put opponents on a Range rather than on one hand.",
+    definition: "All the hands a player could have at a point in the hand, each with a weight. You put opponents on a Range rather than on one hand.",
     example: "A tight UTG open Range: 88+, AJs+, KQs, AQo+.",
     id: "range",
     term: "Range",
@@ -670,7 +670,8 @@ export const GLOSSARY: readonly GlossaryTerm[] = [
     topic: "solver",
   },
   {
-    definition: "The preflop action that led to the Spot. In the Solver it fills both Ranges from your Charts and works out the pot and stacks.",
+    definition:
+      "The preflop action that led to the Spot. In the Solver it fills both Ranges from your Charts and works out the pot and stacks, with the real blinds of the Blind level you pick.",
     example: "CO opens 2.5bb, BB calls, 40bb.",
     id: "preflop-line",
     term: "Preflop line",

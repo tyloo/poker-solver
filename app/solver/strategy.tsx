@@ -1,20 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { primaryButton, textButton } from "@/components/buttons";
 import { CardKeypadSheet } from "@/components/card-keypad-sheet";
 import { PlayingCard } from "@/components/playing-card";
 import { RangeGrid } from "@/components/range-grid";
 import { CARD_COUNT, cardFromId } from "@/lib/poker/card";
 import { HAND_CLASS_COUNT, HAND_CLASS_NAMES, type HandClassId, handClassCombos } from "@/lib/poker/combo";
-import { actionColours, actionLabel, actionPhrase, actionShares, chanceLabel, formatBb } from "@/lib/solver/display";
+import { actionColours, actionLabel, actionShares, formatBb, type StepSource, stepLabel } from "@/lib/solver/display";
 import type { NodeView } from "@/lib/solver/solver";
 import type { Player } from "@/lib/solver/spot";
-
-type Step = { index: number; label: string };
+import { TREE_PATH_PARAM, treePathCodec } from "@/lib/solver/spot-url";
+import { codecs, HAND_CLASS_PARAM, setUrlParams, useUrlState } from "@/lib/url-state";
 
 const percent = (share: number) => (share > 0 && share < 0.0005 ? "<0.1%" : `${(share * 100).toFixed(share > 0 && share < 0.1 ? 1 : 0)}%`);
 const combos = (count: number) => (Number.isInteger(count) ? String(count) : count.toFixed(1));
-const textButton = "h-11 rounded-full px-3 font-bold text-dust underline decoration-2 underline-offset-4 hover:text-chalk focus-visible:outline-3 focus-visible:outline-chalk";
 
 function nodeHeading(node: NodeView, players: readonly [string, string]): string {
   const pot = formatBb(node.pot);
@@ -30,31 +30,42 @@ type Props = {
   players: readonly [string, string];
   /** Changes when the solve has new results, so the shown node is read again. */
   version: string;
-  /** Hand class to open on, e.g. the hero's hand. */
-  initialClass: HandClassId | null;
+  /** Hand class selected when the URL names none, e.g. the hero's. */
+  heroClass: HandClassId | null;
 };
 
-/** Browses the solved game tree: the strategy grid of the current decision, its actions, chance cards and per-Hand-class numbers. */
-export function Strategy({ query, players, version, initialClass }: Props) {
-  const [steps, setSteps] = useState<Step[]>([]);
+const slim = ({ kind, player, actions, cards, board }: NodeView): StepSource => ({ actions, board, cards, kind, player });
+
+/**
+ * Browses the solved game tree: the strategy grid of the current decision, its actions, chance cards and per-Hand-class numbers.
+ * The path and the selected Hand class live in the URL; a path the tree does not have falls back to the root.
+ */
+export function Strategy({ query, players, version, heroClass }: Props) {
+  const [path, setPath] = useUrlState(TREE_PATH_PARAM, treePathCodec, "push");
+  const [selected, setSelected] = useUrlState(HAND_CLASS_PARAM, codecs.handClass(heroClass));
   const [view, setView] = useState<{ key: string; node: NodeView } | null>(null);
+  /** Nodes already read, by path, to name the steps of the breadcrumb. */
+  const [sources, setSources] = useState<Record<string, StepSource>>({});
   const [error, setError] = useState<string | null>(null);
-  const [viewer, setViewer] = useState<Player | null>(null);
-  const [selected, setSelected] = useState<HandClassId | null>(initialClass);
+  const [viewer, setViewer] = useState<{ key: string; player: Player } | null>(null);
   const [picking, setPicking] = useState(false);
 
-  const path = steps.map((step) => step.index);
   const pathKey = path.join(".");
 
   useEffect(() => {
     let live = true;
     setError(null);
-    query(path).then(
-      (node) => {
-        if (live) setView({ key: pathKey, node });
+    const unnamed = path.map((_, i) => path.slice(0, i)).filter((prefix) => !(prefix.join(".") in sources));
+    Promise.all([query(path), ...unnamed.map(query)]).then(
+      ([node, ...parents]) => {
+        if (!live) return;
+        setSources((known) => Object.fromEntries([...Object.entries(known), ...[node, ...parents].map((read) => [read.path.join("."), slim(read)])]));
+        setView({ key: pathKey, node });
       },
       (reason: unknown) => {
-        if (live) setError(reason instanceof Error ? reason.message : String(reason));
+        if (!live) return;
+        if (path.length > 0) setUrlParams({ [TREE_PATH_PARAM]: null });
+        else setError(reason instanceof Error ? reason.message : String(reason));
       },
     );
     return () => {
@@ -62,14 +73,14 @@ export function Strategy({ query, players, version, initialClass }: Props) {
     };
   }, [pathKey, version]);
 
-  const go = (next: Step[]) => {
-    setSteps(next);
-    setViewer(null);
-  };
+  const steps = path.map((index, i) => {
+    const source = sources[path.slice(0, i).join(".")];
+    return { index, label: (source && stepLabel(source, index, players)) ?? "…" };
+  });
 
   const node = view?.node ?? null;
   const loading = view?.key !== pathKey;
-  const shown: Player = viewer ?? node?.player ?? 0;
+  const shown: Player = viewer?.key === pathKey ? viewer.player : (node?.player ?? 0);
   const range = node?.ranges[shown];
   const acting = node !== null && node.kind === "action" && node.player === shown;
   const colours = node ? actionColours(node.actions) : [];
@@ -120,11 +131,11 @@ export function Strategy({ query, players, version, initialClass }: Props) {
                   </span>
                 )}
                 {last ? (
-                  <span aria-current="location" className="px-1 py-2.5 font-bold">
+                  <span aria-current="location" className="px-1 py-3 font-bold">
                     {step.label}
                   </span>
                 ) : (
-                  <button type="button" onClick={() => go(steps.slice(0, i))} className={textButton}>
+                  <button type="button" onClick={() => setPath(path.slice(0, i))} className={textButton}>
                     {step.label}
                   </button>
                 )}
@@ -139,7 +150,7 @@ export function Strategy({ query, players, version, initialClass }: Props) {
       </p>
 
       {node && (
-        <div className={`flex flex-col gap-4 transition-opacity ${loading ? "opacity-60" : ""}`}>
+        <div className={`flex flex-col gap-4 ${loading ? "opacity-60" : ""}`}>
           <ul aria-label="Board" className="m-0 flex list-none gap-2 p-0">
             {node.board.map((card) => (
               <li key={card}>
@@ -155,7 +166,7 @@ export function Strategy({ query, players, version, initialClass }: Props) {
                 <li key={a}>
                   <button
                     type="button"
-                    onClick={() => go([...steps, { index: a, label: actionPhrase(players[node.player as Player], action) }])}
+                    onClick={() => setPath([...path, a])}
                     className="flex h-12 w-full items-center justify-between rounded-xl bg-booth px-4 text-left font-bold focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-2"
                   >
                     <span className="flex items-center gap-3">
@@ -171,11 +182,7 @@ export function Strategy({ query, players, version, initialClass }: Props) {
 
           {node.kind === "chance" && (
             <div>
-              <button
-                type="button"
-                onClick={() => setPicking(true)}
-                className="h-12 rounded-full bg-chalk px-6 font-bold font-display text-night text-xl focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-3"
-              >
+              <button type="button" onClick={() => setPicking(true)} className={primaryButton}>
                 {`Pick the ${node.board.length === 3 ? "turn" : "river"} card`}
               </button>
             </div>
@@ -189,7 +196,7 @@ export function Strategy({ query, players, version, initialClass }: Props) {
                   key={player}
                   type="button"
                   aria-pressed={shown === player}
-                  onClick={() => setViewer(player)}
+                  onClick={() => setViewer({ key: pathKey, player })}
                   className="h-11 flex-1 rounded-xl bg-booth font-bold font-display text-lg leading-none focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-2 aria-pressed:bg-chalk aria-pressed:text-night"
                 >
                   {`${players[player]} (${player === 0 ? "OOP" : "IP"})`}
@@ -255,7 +262,7 @@ export function Strategy({ query, players, version, initialClass }: Props) {
           onDone={([card]) => {
             setPicking(false);
             const index = card === undefined ? -1 : node.cards.indexOf(card);
-            if (index >= 0) go([...steps, { index, label: chanceLabel(card, node.board.length) }]);
+            if (index >= 0) setPath([...path, index]);
           }}
           onClose={() => setPicking(false)}
         />

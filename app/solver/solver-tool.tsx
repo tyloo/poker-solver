@@ -2,6 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { outlineButton, primaryButton, textButton } from "@/components/buttons";
 import { CardKeypadSheet } from "@/components/card-keypad-sheet";
 import { LoadRangeButton } from "@/components/load-range-sheet";
 import { PlayingCard } from "@/components/playing-card";
@@ -9,13 +10,14 @@ import { RangeSheet, rangeSummary } from "@/components/range-sheet";
 import { type CardId, cardFromId } from "@/lib/poker/card";
 import { comboId, HAND_CLASS_NAMES, handClassOfCombo } from "@/lib/poker/combo";
 import { parseRange } from "@/lib/poker/range";
+import { formatMegabytes, overBudgetMessage } from "@/lib/solver/estimate";
 import { describeLine } from "@/lib/solver/preflop-line";
 import type { SolveStatus } from "@/lib/solver/protocol";
 import { BET_SIZE_OPTIONS, betSizesFor, resolveSetup } from "@/lib/solver/spot-setup";
-import { parseSpotParams, type SpotSetup, spotParams } from "@/lib/solver/spot-url";
+import { parseSpotParams, type SpotSetup, spotParams, TREE_PATH_PARAM } from "@/lib/solver/spot-url";
 import { type SolveRun, useSolver } from "@/lib/solver/use-solver";
 import { setUrlParams } from "@/lib/url-state";
-import { AmountsSheet, LineSheet } from "./setup-sheets";
+import { AmountsSheet, describeLevel, LineSheet } from "./setup-sheets";
 import { Strategy } from "./strategy";
 
 type OpenSheet = { kind: "line" | "amounts" | "board" | "hand" } | { kind: "range"; player: 0 | 1 } | null;
@@ -23,11 +25,6 @@ type OpenSheet = { kind: "line" | "amounts" | "board" | "hand" } | { kind: "rang
 const RAISE_OPTIONS = [2.5, 3, 4] as const;
 const CONTINUE_ITERATIONS = 1000;
 
-const primaryButton =
-  "h-12 rounded-full bg-chalk px-6 font-bold font-display text-night text-xl focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-3 disabled:opacity-40";
-const outlineButton =
-  "h-12 rounded-full border-2 border-chalk px-5 font-bold font-display text-chalk text-xl focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-3";
-const textButton = "h-12 rounded-full px-4 font-bold text-dust underline decoration-2 underline-offset-4 hover:text-chalk focus-visible:outline-3 focus-visible:outline-chalk";
 const chipButton =
   "h-11 min-w-0 flex-1 rounded-xl bg-booth px-0.5 font-bold font-display text-lg leading-none focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-2 aria-pressed:bg-chalk aria-pressed:text-night";
 const sectionHeading = "m-0 font-bold font-display text-3xl leading-none";
@@ -35,7 +32,6 @@ const sectionHeading = "m-0 font-bold font-display text-3xl leading-none";
 const bb = (value: number) => (Number.isNaN(value) ? "?" : `${Number(value.toFixed(2))}bb`);
 const share = (value: number | null) => (value === null ? "?" : `${(value * 100).toFixed(2)}%`);
 const seconds = (ms: number) => `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)} s`;
-const megabytes = (bytes: number) => `${Math.max(1, Math.ceil(bytes / 2 ** 20))} MB`;
 
 function runText(run: SolveRun): string {
   if (run.status === "idle") return "";
@@ -68,7 +64,7 @@ function ProgressMeter({ progress }: { progress: SolveStatus | null }) {
   const value = progress?.exploitabilityShare ? Math.min(1, Math.max(0, Math.log(0.5 / progress.exploitabilityShare) / Math.log(100))) : 0;
   return (
     <div aria-hidden="true" className="mt-3 h-2 overflow-hidden rounded-full bg-booth">
-      <div className="h-full rounded-full bg-call transition-[width] duration-300 motion-reduce:transition-none" style={{ width: `${Math.round(value * 100)}%` }} />
+      <div className="h-full rounded-full bg-call" style={{ width: `${Math.round(value * 100)}%` }} />
     </div>
   );
 }
@@ -83,7 +79,9 @@ export function SolverTool() {
   const [solveCount, setSolveCount] = useState(0);
   const [browsable, setBrowsable] = useState(0);
 
-  const update = (fields: Partial<SpotSetup>, history: "push" | "replace" = "push") => setUrlParams(spotParams(fields), history);
+  // Changing the Spot makes the tree path stale: it belongs to the last Spot solved. The hero's hand is not part of the Spot.
+  const update = (fields: Partial<SpotSetup>, history: "push" | "replace" = "push") =>
+    setUrlParams({ ...spotParams(fields), ...(Object.keys(fields).some((name) => name !== "hand") && { [TREE_PATH_PARAM]: null }) }, history);
   const close = () => setSheet(null);
 
   const { players, street } = resolved;
@@ -121,7 +119,7 @@ export function SolverTool() {
           className="mt-2 block w-full rounded-lg text-left font-bold underline decoration-2 underline-offset-4 focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-3"
         >
           <span className="sr-only">Change the Preflop line: </span>
-          {setup.line ? describeLine(setup.line, setup.depth) : "None: amounts and ranges set by hand"}
+          {setup.line ? `${describeLine(setup.line, setup.depth)}, ${describeLevel(setup.level)}` : "None: amounts and ranges set by hand"}
         </button>
         <div className="mt-2 flex items-center justify-between gap-3">
           <p className="m-0 text-dust">
@@ -239,10 +237,8 @@ export function SolverTool() {
               : !estimate.ok
                 ? estimate.error
                 : estimate.estimate.fits
-                  ? `${estimate.estimate.actionNodes.toLocaleString("en-US")} decisions, about ${megabytes(estimate.estimate.memoryBytes)} of memory, ${estimate.estimate.combos[0]} vs ${estimate.estimate.combos[1]} combos.`
-                  : `This spot needs about ${megabytes(estimate.estimate.memoryBytes)}, above the ${megabytes(estimate.estimate.budgetBytes)} budget. Narrow the ranges${
-                      street === "flop" ? "" : " or drop a bet size"
-                    }, or start from a later street.`)}
+                  ? `${estimate.estimate.actionNodes.toLocaleString("en-US")} decisions, about ${formatMegabytes(estimate.estimate.memoryBytes)} of memory, ${estimate.estimate.combos[0]} vs ${estimate.estimate.combos[1]} combos.`
+                  : resolved.spot && overBudgetMessage(estimate.estimate, resolved.spot))}
         </p>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -279,7 +275,7 @@ export function SolverTool() {
           query={solver.query}
           players={stale ? ["OOP", "IP"] : players}
           version={run.status === "done" ? String(run.progress.iteration) : "running"}
-          initialClass={heroClass}
+          heroClass={heroClass}
         />
       )}
 
@@ -287,8 +283,9 @@ export function SolverTool() {
         <LineSheet
           line={setup.line}
           depth={setup.depth}
-          onDone={(line, depth) => {
-            update({ depth, line, pot: null, ranges: [null, null], stack: null });
+          level={setup.level}
+          onDone={(line, depth, level) => {
+            update({ depth, level, line, pot: null, ranges: [null, null], stack: null });
             close();
           }}
           onClose={close}

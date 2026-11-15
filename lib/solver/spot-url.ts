@@ -1,6 +1,8 @@
+import { BLIND_STRUCTURE } from "@/content/blind-structure";
 import { type CardId, cardFromId, cardId, formatCards, parseCards } from "@/lib/poker/card";
 import { formatRange, type Range } from "@/lib/poker/range";
 import { POSITIONS, type Position } from "@/lib/poker/table";
+import type { Codec } from "@/lib/url-state";
 import { DEFAULT_DEPTH, DEFAULT_LINE, isValidLine, type OpenerPosition, type PreflopLine } from "./preflop-line";
 
 /**
@@ -12,6 +14,8 @@ export type SpotSetup = {
   line: PreflopLine | null;
   /** Starting Stack depth before the hand, in bb; picks the Stack tier of the line's Charts. */
   depth: number;
+  /** Blind level of the Blind structure, counted from 1; its real blinds go into the line's pot. */
+  level: number;
   board: CardId[];
   /** Pot at the start of the Spot, in bb. */
   pot: number | null;
@@ -31,6 +35,7 @@ export type SpotSetup = {
 export const SPOT_PARAMS = {
   line: "line",
   depth: "depth",
+  level: "level",
   board: "board",
   pot: "pot",
   stack: "stack",
@@ -42,12 +47,15 @@ export const SPOT_PARAMS = {
 } as const;
 
 export const DEFAULT_RAISE = 3;
+/** The first Blind level where the SB is half the BB, so the line's pot matches the Charts. */
+export const DEFAULT_LEVEL = BLIND_STRUCTURE.levels.findIndex((level) => level.sb * 2 === level.bb) + 1 || 1;
 
 export const DEFAULT_SETUP: SpotSetup = {
   bets: null,
   board: [],
   depth: DEFAULT_DEPTH,
   hand: [],
+  level: DEFAULT_LEVEL,
   line: DEFAULT_LINE,
   pot: null,
   raise: DEFAULT_RAISE,
@@ -108,6 +116,7 @@ export function parseSpotParams(params: Pick<URLSearchParams, "get">): SpotSetup
     board: parseCardList(get("board"), 5),
     depth: parseNumber(get("depth"), (value) => value > 0) ?? DEFAULT_DEPTH,
     hand: hand.length === 2 ? hand : [],
+    level: parseNumber(get("level"), (value) => Number.isInteger(value) && value >= 1) ?? DEFAULT_LEVEL,
     line: parseLine(get("line")),
     pot: parseNumber(get("pot"), (value) => value > 0),
     raise: parseNumber(get("raise"), (value) => value > 1) ?? DEFAULT_RAISE,
@@ -123,6 +132,7 @@ export function spotParams(setup: Partial<SpotSetup>): Record<string, string | n
   const values: Record<string, string | null> = {};
   if (setup.line !== undefined) values[SPOT_PARAMS.line] = formatLine(setup.line);
   if (setup.depth !== undefined) values[SPOT_PARAMS.depth] = setup.depth === DEFAULT_DEPTH ? null : formatAmount(setup.depth);
+  if (setup.level !== undefined) values[SPOT_PARAMS.level] = setup.level === DEFAULT_LEVEL ? null : String(setup.level);
   if (setup.board !== undefined) values[SPOT_PARAMS.board] = formatCardList(setup.board);
   if (setup.pot !== undefined) values[SPOT_PARAMS.pot] = setup.pot === null ? null : formatAmount(setup.pot);
   if (setup.stack !== undefined) values[SPOT_PARAMS.stack] = setup.stack === null ? null : formatAmount(setup.stack);
@@ -141,6 +151,8 @@ export type SolverLink = {
   /** Labels the players by Position and fills whatever else is missing. Without it, give the pot, stack and Ranges. */
   line?: PreflopLine;
   depth?: number;
+  /** Blind level of the line's pot, counted from 1. */
+  level?: number;
   board?: readonly CardId[];
   /** Pot at the start of the street, in bb. */
   pot?: number;
@@ -162,6 +174,7 @@ export function solverHref(link: SolverLink): string {
   const values = spotParams({
     ...((link.line || link.ranges) && { line: link.line ?? null }),
     ...(link.depth !== undefined && { depth: link.depth }),
+    ...(link.level !== undefined && { level: link.level }),
     ...(link.board && { board: [...link.board] }),
     ...(link.pot !== undefined && { pot: link.pot }),
     ...(link.stack !== undefined && { stack: link.stack }),
@@ -178,3 +191,12 @@ export function solverHref(link: SolverLink): string {
   const query = params.toString();
   return query ? `/solver?${query}` : "/solver";
 }
+
+/** Query param of the node shown in the Solver's results. */
+export const TREE_PATH_PARAM = "path";
+
+/** A path through the solved tree (action indexes, and card indexes at chance nodes) as "0.2.17"; the root, or anything malformed, is []. */
+export const treePathCodec: Codec<number[]> = {
+  parse: (raw) => (raw && /^\d+(\.\d+)*$/.test(raw) ? raw.split(".").map(Number) : []),
+  serialize: (path) => (path.length === 0 ? null : path.join(".")),
+};

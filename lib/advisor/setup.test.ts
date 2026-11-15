@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { type CardId, cardId, parseCards } from "@/lib/poker/card";
 import { withParams } from "@/lib/url-state";
-import { type AdvisorSetup, advisorParams, bigBlindChips, DEFAULT_SETUP, parseAdvisorParams, parseAmount, preflopSpot, stackDepthOf, toUnit } from "./setup";
+import { type AdvisorSetup, advisorParams, bigBlindChips, DEFAULT_SETUP, parseAdvisorParams, parseAmount, preflopQuestion, stackDepthOf, toUnit } from "./setup";
 
 const cards = (text: string): CardId[] => (parseCards(text) ?? []).map(cardId);
 const parse = (query: string) => parseAdvisorParams(new URLSearchParams(query));
@@ -103,23 +103,23 @@ describe("stack", () => {
   });
 });
 
-describe("preflopSpot", () => {
-  it("needs two cards and a seat", () => {
-    expect(preflopSpot(DEFAULT_SETUP)).toEqual({ missing: "hand" });
-    expect(preflopSpot({ ...DEFAULT_SETUP, hand: cards("AsKd") })).toEqual({ missing: "position" });
+describe("preflopQuestion", () => {
+  it("needs two cards and a Position", () => {
+    expect(preflopQuestion(DEFAULT_SETUP)).toEqual({ missing: "hand" });
+    expect(preflopQuestion({ ...DEFAULT_SETUP, hand: cards("AsKd") })).toEqual({ missing: "position" });
   });
 
   it("builds the Situation from its picker", () => {
     const base = { ...DEFAULT_SETUP, hand: cards("AsKd"), position: "CO" as const };
-    expect(preflopSpot(base)).toEqual({ spot: { depth: 200, hand: cards("AsKd"), players: 8, position: "CO", situation: { kind: "folded" } } });
-    expect(preflopSpot({ ...base, limpers: "2+", situation: "limps" })).toMatchObject({ spot: { situation: { kind: "limps", limpers: "2+" } } });
-    expect(preflopSpot({ ...base, opener: "HJ", situation: "open" })).toMatchObject({ spot: { situation: { kind: "open", opener: "HJ" } } });
-    expect(preflopSpot({ ...base, situation: "open" })).toEqual({ missing: "opener" });
-    expect(preflopSpot({ ...base, situation: "push" })).toEqual({ missing: "pusher" });
+    expect(preflopQuestion(base)).toEqual({ question: { depth: 200, hand: cards("AsKd"), players: 8, position: "CO", situation: { kind: "folded" } } });
+    expect(preflopQuestion({ ...base, limpers: "2+", situation: "limps" })).toMatchObject({ question: { situation: { kind: "limps", limpers: "2+" } } });
+    expect(preflopQuestion({ ...base, opener: "HJ", situation: "open" })).toMatchObject({ question: { situation: { kind: "open", opener: "HJ" } } });
+    expect(preflopQuestion({ ...base, situation: "open" })).toEqual({ missing: "opener" });
+    expect(preflopQuestion({ ...base, situation: "push" })).toEqual({ missing: "pusher" });
   });
 
-  it("ignores a seat the table does not have", () => {
-    expect(preflopSpot({ ...DEFAULT_SETUP, hand: cards("AsKd"), players: 6, position: "UTG" })).toEqual({ missing: "position" });
+  it("ignores a Position the table does not have", () => {
+    expect(preflopQuestion({ ...DEFAULT_SETUP, hand: cards("AsKd"), players: 6, position: "UTG" })).toEqual({ missing: "position" });
   });
 });
 

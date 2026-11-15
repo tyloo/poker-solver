@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { SolveHandlers, SolveResult, SolverClient } from "./client";
-import { createSolverClient } from "./create-solver-client";
+import { connectSolver, type SolveHandlers, type SolveResult, type SolverClient } from "./client";
 import type { EstimateResult, SpotEstimate } from "./estimate";
 import type { DoneReason, SolveOptions, SolveStatus } from "./protocol";
 import type { NodeView } from "./solver";
@@ -30,7 +29,7 @@ export function useSolver(spot: Spot | null, key: string) {
   const [run, setRun] = useState<SolveRun>({ status: "idle" });
 
   useEffect(() => {
-    const client = createSolverClient();
+    const client = connectSolver(new Worker(new URL("./solver.worker.ts", import.meta.url), { type: "module" }));
     clientRef.current = client;
     return () => {
       client.dispose();

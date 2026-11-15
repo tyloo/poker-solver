@@ -1,0 +1,92 @@
+.card {
+  --card-w: 6.5rem;
+  position: relative;
+  width: var(--card-w);
+  aspect-ratio: 5 / 7;
+  perspective: 900px;
+}
+
+.md {
+  --card-w: 3.75rem;
+}
+
+.sm {
+  --card-w: 2.5rem;
+}
+
+.flipper {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 480ms cubic-bezier(0.3, 0.7, 0.3, 1);
+}
+
+.faceDown .flipper {
+  transform: rotateY(180deg);
+}
+
+.face,
+.back {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border: 2px solid var(--color-night);
+  border-radius: calc(var(--card-w) * 0.1);
+  box-shadow: calc(var(--card-w) * 0.06) calc(var(--card-w) * 0.06) 0 var(--color-pit);
+  backface-visibility: hidden;
+}
+
+.face {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  padding: calc(var(--card-w) * 0.08) calc(var(--card-w) * 0.09);
+  background: var(--color-chalk);
+}
+
+.corner {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--card-w) * 0.02);
+  align-items: center;
+  justify-self: start;
+}
+
+.rank {
+  font-family: var(--font-big-shoulders), sans-serif;
+  font-size: calc(var(--card-w) * 0.36);
+  font-weight: 800;
+  line-height: 0.85;
+}
+
+.cornerSuit {
+  width: calc(var(--card-w) * 0.2);
+  aspect-ratio: 1;
+}
+
+.bigSuit {
+  align-self: end;
+  justify-self: end;
+  width: calc(var(--card-w) * 0.52);
+  aspect-ratio: 1;
+  margin: 0 calc(var(--card-w) * -0.03) calc(var(--card-w) * -0.02) 0;
+}
+
+.back {
+  background-color: var(--color-booth);
+  background-image: repeating-linear-gradient(45deg, var(--color-fold) 0 2px, transparent 2px 9px), repeating-linear-gradient(-45deg, var(--color-fold) 0 2px, transparent 2px 9px);
+  transform: rotateY(180deg);
+}
+
+.back::after {
+  position: absolute;
+  inset: calc(var(--card-w) * 0.07);
+  content: "";
+  border: 2px solid var(--color-dust);
+  border-radius: calc(var(--card-w) * 0.05);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flipper {
+    transition: none;
+  }
+}

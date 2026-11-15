@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+/* `static` keeps every colour as a CSS variable, so CSS Modules can use them too. */
+@theme static {
+  --color-night: #1b1527;
+  --color-booth: #271f38;
+  --color-pit: #0b0812;
+  --color-chalk: #efe7da;
+  --color-dust: #a99fb8;
+
+  --color-raise: #ff6a4d;
+  --color-call: #4cb6a8;
+  --color-push: #f4b740;
+  --color-fold: #3b3152;
+
+  --color-spade: #1b1527;
+  --color-heart: #d93a40;
+  --color-diamond: #2f6fe0;
+  --color-club: #1f8a55;
+}
+
+@theme inline {
+  --font-display: var(--font-big-shoulders), sans-serif;
+  --font-sans: var(--font-atkinson), sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    font-variant-numeric: tabular-nums;
+  }
+}

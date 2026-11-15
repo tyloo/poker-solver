@@ -22,7 +22,7 @@ const question = (overrides: Partial<PreflopQuestion>): PreflopQuestion => ({
 
 function line(overrides: Partial<PreflopQuestion>): PostflopLine {
   const input = question(overrides);
-  const result = postflopLine(input, advisePreflop(input));
+  const result = postflopLine(input, advisePreflop(input, "en"), "en");
   if (!result.ok) throw new Error(result.reason);
   return result.line;
 }
@@ -34,7 +34,7 @@ const estimate = (type: PlayerType, key: ChartKey, action: ActionId) => {
 };
 
 function rangeOf(postflop: PostflopLine, position: PreflopQuestion["position"], type: PlayerType = "standard") {
-  const result = opponentRange(postflop, { position, type });
+  const result = opponentRange(postflop, { position, type }, "en");
   if (!result.ok) throw new Error(result.error);
   return result;
 }
@@ -64,7 +64,7 @@ describe("postflopNumbers", () => {
 });
 
 describe("postflopVerdict", () => {
-  const verdict = (equity: number, input: { pot: number; bet: number; stack: number }, opponents = 1) => postflopVerdict({ equity, opponents, ...input }).kind;
+  const verdict = (equity: number, input: { pot: number; bet: number; stack: number }, opponents = 1) => postflopVerdict({ equity, opponents, ...input }, "en").kind;
 
   it("calls or folds facing a bet by pot odds", () => {
     expect(verdict(0.26, { bet: 50, pot: 100, stack: 1000 })).toBe("call");
@@ -89,20 +89,23 @@ describe("postflopVerdict", () => {
   });
 
   it("labels itself as a heuristic with a reason", () => {
-    const result = postflopVerdict({ bet: 50, equity: 0.3, opponents: 1, pot: 100, stack: 1000 });
+    const result = postflopVerdict({ bet: 50, equity: 0.3, opponents: 1, pot: 100, stack: 1000 }, "en");
     expect(result.title).toBe("Call");
     expect(result.reason).toBe("30% equity beats the 25% the price needs.");
+    const french = postflopVerdict({ bet: 50, equity: 0.2, opponents: 1, pot: 100, stack: 1000 }, "fr");
+    expect(french.title).toBe("Se coucher");
+    expect(french.reason).toBe("20\u00a0% d’équité, c’est moins que les 25\u00a0% qu’exige la cote.");
   });
 });
 
 describe("postflopLine", () => {
   it("has no postflop after an all-in or a walk", () => {
     const pushed = question({ depth: 8 });
-    expect(postflopLine(pushed, advisePreflop(pushed)).ok).toBe(false);
+    expect(postflopLine(pushed, advisePreflop(pushed, "en"), "en").ok).toBe(false);
     const vsPush = question({ depth: 8, position: "BB", situation: { kind: "push", pusher: "BTN" } });
-    expect(postflopLine(vsPush, advisePreflop(vsPush)).ok).toBe(false);
+    expect(postflopLine(vsPush, advisePreflop(vsPush, "en"), "en").ok).toBe(false);
     const walk = question({ position: "BB" });
-    expect(postflopLine(walk, advisePreflop(walk)).ok).toBe(false);
+    expect(postflopLine(walk, advisePreflop(walk, "en"), "en").ok).toBe(false);
   });
 
   it("assumes the hero entered the pot with the Chart's most frequent action other than fold", () => {
@@ -183,8 +186,8 @@ describe("opponentRange", () => {
   });
 
   it("rejects Positions that folded before the flop", () => {
-    expect(opponentRange(line({ position: "CO" }), { position: "HJ", type: "standard" }).ok).toBe(false);
-    expect(opponentRange(line({ position: "CO" }), { position: "CO", type: "standard" }).ok).toBe(false);
+    expect(opponentRange(line({ position: "CO" }), { position: "HJ", type: "standard" }, "en").ok).toBe(false);
+    expect(opponentRange(line({ position: "CO" }), { position: "CO", type: "standard" }, "en").ok).toBe(false);
   });
 });
 

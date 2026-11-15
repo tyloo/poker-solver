@@ -82,15 +82,16 @@ describe("Push/fold actions and names", () => {
       ["push", "push", false],
       ["fold", "fold", true],
     ]);
-    expect(pushFoldActions("vs-push").map((action) => [action.id, action.label])).toEqual([
-      ["call", "Call"],
-      ["fold", "Fold"],
+    expect(pushFoldActions("vs-push").map((action) => [action.id, action.name])).toEqual([
+      ["call", "call"],
+      ["fold", "fold"],
     ]);
   });
 
   it("names series and Charts in plain words", () => {
-    expect(describePushFold({ position: "CO", situation: "push" })).toBe("CO push");
-    expect(describePushFold({ depth: 8, position: "BB", pusher: "late", situation: "vs-push" })).toBe("BB vs late push, 8bb");
+    expect(describePushFold({ position: "CO", situation: "push" }, "en")).toBe("CO push");
+    expect(describePushFold({ depth: 8, position: "BB", pusher: "late", situation: "vs-push" }, "en")).toBe("BB vs late push, 8bb");
+    expect(describePushFold({ depth: 8, position: "BB", pusher: "late", situation: "vs-push" }, "fr")).toBe("BB face à un push en fin de parole, 8bb");
   });
 
   it("points at the file entry", () => {
@@ -130,24 +131,35 @@ describe("largestDepths and depthSpans", () => {
       depthSpans(
         byDepth((depth) => (depth <= 11 ? 1 : 0)),
         0,
+        "en",
       ),
     ).toBe("1–11bb");
     expect(
       depthSpans(
         byDepth((depth) => (depth <= 2 || (depth >= 5 && depth <= 7) ? 1 : 0)),
         0,
+        "en",
       ),
     ).toBe("1–2bb and 5–7bb");
     expect(
       depthSpans(
         byDepth((depth) => (depth === 1 || depth === 4 || depth >= 9 ? 1 : 0)),
         0,
+        "en",
       ),
     ).toBe("1bb, 4bb and 9–15bb");
     expect(
       depthSpans(
+        byDepth((depth) => (depth === 1 || depth === 4 || depth >= 9 ? 1 : 0)),
+        0,
+        "fr",
+      ),
+    ).toBe("1bb, 4bb et 9–15bb");
+    expect(
+      depthSpans(
         byDepth(() => 0),
         0,
+        "en",
       ),
     ).toBe("");
   });

@@ -1,10 +1,9 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PlayingCard } from "@/components/playing-card";
 import { ToolHeader } from "@/components/tool-header";
+import type { Locale } from "@/lib/i18n/locale";
+import { messages } from "@/lib/i18n/messages";
 import { SolverTool } from "./solver-tool";
-
-export const metadata: Metadata = { title: "Solver" };
 
 function Skeleton() {
   return (
@@ -20,10 +19,11 @@ function Skeleton() {
   );
 }
 
-export default function SolverPage() {
+export function SolverPage({ locale }: { locale: Locale }) {
+  const { title, lede } = messages(locale).tools.solver;
   return (
     <>
-      <ToolHeader title="Solver" lede="The game-theory strategy for a heads-up flop, turn or river spot." />
+      <ToolHeader title={title} lede={lede} />
       <Suspense fallback={<Skeleton />}>
         <SolverTool />
       </Suspense>

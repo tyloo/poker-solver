@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { Locale } from "@/lib/i18n/locale";
 import type { EquityInput, EquityResult } from "./engine";
 import type { EquityRequest, EquityResponse } from "./protocol";
 
@@ -10,7 +11,7 @@ export type EquityRun = { status: "idle" } | { status: "running"; result: Equity
  * Computes equity in a Web Worker and restarts whenever `key` changes, so `key` must identify `input`
  * (e.g. its URL form). The worker starts on mount, which also lets the service worker cache it.
  */
-export function useEquity(input: EquityInput | null, key: string): EquityRun {
+export function useEquity(input: EquityInput | null, key: string, locale: Locale): EquityRun {
   const workerRef = useRef<Worker | null>(null);
   const requestRef = useRef(0);
   const [run, setRun] = useState<EquityRun>({ status: "idle" });
@@ -39,7 +40,7 @@ export function useEquity(input: EquityInput | null, key: string): EquityRun {
       return;
     }
     setRun({ result: null, status: "running" });
-    post({ id, input, type: "start" });
+    post({ id, input, locale, type: "start" });
   }, [key]);
 
   return run;

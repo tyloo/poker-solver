@@ -1,10 +1,10 @@
+import type { Locale } from "@/lib/i18n/locale";
+import { messages } from "@/lib/i18n/messages";
 import { POSITIONS, type Position, preflopOrder, STACK_TIER_LABELS, STACK_TIERS, type StackTier } from "@/lib/poker/table";
 
 /** Situations with raising Charts. Push and Vs push have their own Push/fold charts. */
 export const SITUATIONS = ["open", "vs-open", "vs-limpers"] as const;
 export type Situation = (typeof SITUATIONS)[number];
-
-export const SITUATION_LABELS: Record<Situation, string> = { open: "Open", "vs-limpers": "Vs limpers", "vs-open": "Vs open" };
 
 export const OPENER_GROUPS = ["early", "middle", "late"] as const;
 export type OpenerGroup = (typeof OPENER_GROUPS)[number];
@@ -68,27 +68,31 @@ export function chartKeys(): ChartKey[] {
 export type ActionId = "raise" | "call" | "limp" | "check" | "push" | "fold";
 export type ActionColour = "raise" | "call" | "push" | "fold";
 
-/** One action of a Chart. The remainder action (fold, or check for the BB behind limpers) is implicit in Chart files. */
-export type ChartAction = { id: ActionId; label: string; colour: ActionColour; remainder: boolean };
+/** What an action is called in its Situation: a raise is a 3-bet facing an open, an iso-raise behind limpers. Shown via `Messages.actions`. */
+export type ActionName = "raise" | "3-bet" | "iso-raise" | "limp" | "overlimp" | "call" | "check" | "fold" | "push";
 
-export const action = (id: ActionId, label: string, colour: ActionColour, remainder = false): ChartAction => ({ colour, id, label, remainder });
+/** One action of a Chart. The remainder action (fold, or check for the BB behind limpers) is implicit in Chart files. */
+export type ChartAction = { id: ActionId; name: ActionName; colour: ActionColour; remainder: boolean };
+
+export const action = (id: ActionId, name: ActionName, colour: ActionColour, remainder = false): ChartAction => ({ colour, id, name, remainder });
 
 /** The written actions of a Chart (as keyed in Chart files) followed by its implicit remainder. */
 export function chartActions(key: ChartKey, written?: readonly ActionId[]): ChartAction[] {
-  const fold = action("fold", "Fold", "fold", true);
+  const fold = action("fold", "fold", "fold", true);
   const has = (id: ActionId, standard: boolean) => (written ? written.includes(id) : standard);
-  if (key.situation === "open") return [action("raise", "Raise", "raise"), ...(has("limp", key.position === "SB") ? [action("limp", "Limp", "call")] : []), fold];
-  if (key.situation === "vs-open") return [action("raise", "3-bet", "raise"), action("call", "Call", "call"), fold];
-  if (key.position === "BB") return [action("raise", "Raise", "raise"), action("check", "Check", "call", true)];
-  return [action("raise", "Iso-raise", "raise"), action("limp", "Overlimp", "call"), fold];
+  if (key.situation === "open") return [action("raise", "raise", "raise"), ...(has("limp", key.position === "SB") ? [action("limp", "limp", "call")] : []), fold];
+  if (key.situation === "vs-open") return [action("raise", "3-bet", "raise"), action("call", "call", "call"), fold];
+  if (key.position === "BB") return [action("raise", "raise", "raise"), action("check", "check", "call", true)];
+  return [action("raise", "iso-raise", "raise"), action("limp", "overlimp", "call"), fold];
 }
 
 /** Plain-words name such as "BB vs late open, 25bb". */
-export function describeChart(key: ChartKey): string {
+export function describeChart(key: ChartKey, locale: Locale): string {
+  const t = messages(locale).charts;
   const tier = STACK_TIER_LABELS[key.tier];
-  if (key.situation === "open") return `${key.position} open, ${tier}`;
-  if (key.situation === "vs-open") return `${key.position} vs ${key.opener} open, ${tier}`;
-  return `${key.position} vs ${key.limpers === "1" ? "1 limper" : "2+ limpers"}, ${tier}`;
+  if (key.situation === "open") return t.open(key.position, tier);
+  if (key.situation === "vs-open") return t.vsOpen(key.position, key.opener, tier);
+  return t.vsLimpers(key.position, key.limpers, tier);
 }
 
 /** Query-string names and defaults shared by the Ranges tool and links into it. */

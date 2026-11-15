@@ -130,8 +130,10 @@ describe("lineSpot", () => {
 
 describe("describeLine", () => {
   it("names the line in plain words", () => {
-    expect(describeLine(open("CO", "BB"), 40)).toBe("CO opens 2.5bb, BB calls, 40bb");
-    expect(describeLine(open("BTN", "SB"), 22.5)).toBe("BTN opens 2bb, SB calls, 22.5bb");
-    expect(describeLine({ kind: "limp" }, 30)).toBe("SB limps, BB checks, 30bb");
+    expect(describeLine(open("CO", "BB"), 40, "en")).toBe("CO opens 2.5bb, BB calls, 40bb");
+    expect(describeLine(open("BTN", "SB"), 22.5, "en")).toBe("BTN opens 2bb, SB calls, 22.5bb");
+    expect(describeLine({ kind: "limp" }, 30, "en")).toBe("SB limps, BB checks, 30bb");
+    expect(describeLine(open("CO", "BB"), 40, "fr")).toBe("CO ouvre à 2,5bb, BB calle, 40bb");
+    expect(describeLine({ kind: "limp" }, 30, "fr")).toBe("SB limpe, BB checke, 30bb");
   });
 });

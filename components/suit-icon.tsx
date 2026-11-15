@@ -7,8 +7,6 @@ const PATHS: Record<Suit, string> = {
   c: "M12 2.5a4.3 4.3 0 0 0-3.9 6.1A4.3 4.3 0 1 0 10 16.4c.4-.2.8-.5 1.1-.8-.3 2.4-1 4.4-2.6 6.4h7c-1.6-2-2.3-4-2.6-6.4.3.3.7.6 1.1.8a4.3 4.3 0 1 0 1.9-7.8A4.3 4.3 0 0 0 12 2.5z",
 };
 
-export const SUIT_NAMES: Record<Suit, string> = { s: "spades", h: "hearts", d: "diamonds", c: "clubs" };
-
 export const SUIT_COLOR: Record<Suit, string> = {
   s: "text-spade",
   h: "text-heart",

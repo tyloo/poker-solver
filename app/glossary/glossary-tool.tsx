@@ -2,18 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { textButton } from "@/components/buttons";
-import { GLOSSARY } from "@/content/glossary";
-import { filterTerms, groupByTopic } from "@/lib/glossary/glossary";
+import { useI18n } from "@/components/i18n-provider";
+import { filterTerms, glossaryTerms, groupByTopic } from "@/lib/glossary/glossary";
 import { codecs, useUrlState } from "@/lib/url-state";
 import { GlossaryList } from "./glossary-list";
 
 const queryCodec = codecs.string("");
 
 export function FilterField({ value, onChange, onClear }: { value: string; onChange?: (value: string) => void; onClear?: () => void }) {
+  const { t } = useI18n();
   return (
     <div>
       <label htmlFor="glossary-filter" className="mb-1.5 block text-dust">
-        Find a term or abbreviation
+        {t.glossary.find}
       </label>
       <div className="flex items-center gap-1">
         <input
@@ -30,7 +31,8 @@ export function FilterField({ value, onChange, onClear }: { value: string; onCha
         />
         {value !== "" && onClear && (
           <button type="button" onClick={onClear} className={`-mr-4 shrink-0 ${textButton}`}>
-            Clear<span className="sr-only"> the filter</span>
+            {t.common.clear}
+            <span className="sr-only">{t.glossary.filterSr}</span>
           </button>
         )}
       </div>
@@ -39,6 +41,7 @@ export function FilterField({ value, onChange, onClear }: { value: string; onCha
 }
 
 export function GlossaryTool() {
+  const { locale, t } = useI18n();
   const [query, setQuery] = useUrlState("q", queryCodec);
   const [text, setText] = useState(query);
   const [reported, setReported] = useState(query);
@@ -63,15 +66,15 @@ export function GlossaryTool() {
     setReported(next);
     setQuery(next);
   };
-  const terms = filterTerms(GLOSSARY, text);
+  const terms = filterTerms(glossaryTerms(locale), text);
 
   return (
     <div className="flex flex-col gap-6">
       <FilterField value={text} onChange={change} onClear={() => change("")} />
       <p aria-live="polite" className="-mt-3 mb-0 min-h-[1.5em] text-dust">
-        {text.trim() === "" ? "" : terms.length === 0 ? `No term matches “${text.trim()}”.` : `${terms.length} ${terms.length === 1 ? "term" : "terms"}`}
+        {text.trim() === "" ? "" : terms.length === 0 ? t.glossary.noMatch(text.trim()) : t.glossary.count(terms.length)}
       </p>
-      <GlossaryList groups={groupByTopic(terms)} target={target} />
+      <GlossaryList groups={groupByTopic(terms, locale)} target={target} />
     </div>
   );
 }

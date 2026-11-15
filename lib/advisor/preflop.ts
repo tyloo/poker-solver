@@ -1,6 +1,9 @@
 import { getChart, getPushFoldChart } from "@/lib/charts/charts";
-import { type ActionColour, type ActionId, type ChartKey, chartHref, LIMPER_GROUPS, type LimperGroup, openerGroupOf } from "@/lib/charts/model";
+import { type ActionColour, type ActionId, type ActionName, type ChartKey, chartHref, describeChart, LIMPER_GROUPS, type LimperGroup, openerGroupOf } from "@/lib/charts/model";
 import { describePushFold, PUSH_FOLD_DEPTHS, type PushFoldDepth, type PushFoldKey, pushFoldHref } from "@/lib/charts/push-fold";
+import { formatBb } from "@/lib/format";
+import type { Locale } from "@/lib/i18n/locale";
+import { type Messages, messages } from "@/lib/i18n/messages";
 import type { CardId } from "@/lib/poker/card";
 import { comboId, HAND_CLASS_NAMES, handClassOfCombo } from "@/lib/poker/combo";
 import { OPEN_SIZE_BB, type Position, STACK_TIER_LABELS, type StackTier, stackTierFor, tablePositions } from "@/lib/poker/table";
@@ -22,7 +25,7 @@ export type PreflopQuestion = {
 export type ChartRef = { kind: "chart"; key: ChartKey } | { kind: "push-fold"; key: PushFoldKey };
 
 /** One Chart action and how often the hero's Combo takes it. */
-export type ActionAdvice = { id: ActionId; label: string; colour: ActionColour; frequency: number };
+export type ActionAdvice = { id: ActionId; name: ActionName; label: string; colour: ActionColour; frequency: number };
 
 /** The main action, with its size in bb (`allIn` for pushes and all-in 3-bets). */
 export type Verdict = { action: ActionAdvice; title: string; sizeBb: number | null; allIn: boolean };
@@ -32,7 +35,7 @@ export type PreflopAdvice =
       kind: "advice";
       chart: ChartRef;
       chartTitle: string;
-      /** Link to the Chart in the Ranges tool. */
+      /** Link to the Chart in the Ranges tool (English path; see `localeHref`). */
       href: string;
       baseline: boolean;
       /** Every Chart action in Chart order, the remainder included. */
@@ -61,36 +64,36 @@ export function limperGroupsFor(players: number, position: Position): LimperGrou
   return LIMPER_GROUPS.filter((group) => before >= (group === "1" ? 1 : 2));
 }
 
-function problem(question: PreflopQuestion): string | null {
+function problem(question: PreflopQuestion, t: Messages["advisor"]): string | null {
   const { players, position, situation, depth } = question;
-  if (!(depth > 0) || !Number.isFinite(depth)) return "Enter your stack.";
-  if (!tablePositions(players).includes(position)) return `There is no ${position} at a ${players}-handed table.`;
+  if (!(depth > 0) || !Number.isFinite(depth)) return t.noStack;
+  if (!tablePositions(players).includes(position)) return t.noPosition(position, players);
   const before = positionsBefore(players, position);
   if (situation.kind === "limps" && !limperGroupsFor(players, position).includes(situation.limpers)) {
-    return situation.limpers === "1" ? `Nobody acts before ${position}.` : `Fewer than two players act before ${position}.`;
+    return situation.limpers === "1" ? t.nobodyBefore(position) : t.fewerThanTwo(position);
   }
   if (situation.kind === "open" || situation.kind === "push") {
     const by = situation.kind === "open" ? situation.opener : situation.pusher;
-    if (by === "BB" || !before.includes(by)) return `The ${situation.kind === "open" ? "opener" : "pusher"} must act before you.`;
+    if (by === "BB" || !before.includes(by)) return situation.kind === "open" ? t.openerFirst : t.pusherFirst;
   }
   return null;
 }
 
 const pushFoldDepth = (depth: number) => Math.min(DEEPEST_PUSH_FOLD, Math.max(1, Math.round(depth))) as PushFoldDepth;
 
-function resolveChart(question: PreflopQuestion): { chart: ChartRef; note: string | null } {
+function resolveChart(question: PreflopQuestion, t: Messages["advisor"]): { chart: ChartRef; note: string | null } {
   const { position, situation, depth } = question;
   const tier = stackTierFor(depth);
   if (situation.kind === "push") {
     const pusher = openerGroupOf(situation.pusher) ?? "late";
-    const note = depth > DEEPEST_PUSH_FOLD + 0.5 ? `Vs push charts stop at ${DEEPEST_PUSH_FOLD}bb, so this is the ${DEEPEST_PUSH_FOLD}bb chart.` : null;
+    const note = depth > DEEPEST_PUSH_FOLD + 0.5 ? t.vsPushCapped(DEEPEST_PUSH_FOLD) : null;
     return { chart: { key: { depth: pushFoldDepth(depth), position, pusher, situation: "vs-push" }, kind: "push-fold" }, note };
   }
   if (situation.kind === "folded" && tier === "push-fold") {
     return { chart: { key: { depth: pushFoldDepth(depth), position, situation: "push" }, kind: "push-fold" }, note: null };
   }
   const chartTier: StackTier = tier === "push-fold" ? "15-20bb" : tier;
-  const note = tier === "push-fold" ? "Below 15bb no Push/fold chart covers this Situation, so this is the 15–20bb Chart." : null;
+  const note = tier === "push-fold" ? t.belowPushFold : null;
   if (situation.kind === "folded") return { chart: { key: { position, situation: "open", tier: chartTier }, kind: "chart" }, note };
   if (situation.kind === "open") {
     const opener = openerGroupOf(situation.opener) ?? "late";
@@ -102,12 +105,12 @@ function resolveChart(question: PreflopQuestion): { chart: ChartRef; note: strin
 const fromBlinds = (position: Position) => position === "SB" || position === "BB";
 
 /** Raise sizes: opens from the tier; 3-bets 3× in position, 4× from the blinds; iso-raises 3bb + 1bb per limper (+1bb from the blinds). */
-function verdictFor(chart: ChartRef, action: ActionAdvice): Verdict {
+function verdictFor(chart: ChartRef, action: ActionAdvice, t: Messages): Verdict {
   const plain = (title: string): Verdict => ({ action, allIn: false, sizeBb: null, title });
   const raiseTo = (title: string, sizeBb: number): Verdict => ({ action, allIn: false, sizeBb, title });
   const allIn = (title: string): Verdict => ({ action, allIn: true, sizeBb: null, title });
-  if (action.id === "push") return allIn("Push");
-  if (chart.kind === "push-fold") return action.id === "call" ? allIn("Call") : plain(action.label);
+  if (action.id === "push") return allIn(t.actions.push);
+  if (chart.kind === "push-fold") return action.id === "call" ? allIn(t.actions.call) : plain(action.label);
   const { key } = chart;
   if (action.id !== "raise") return plain(action.label);
   if (key.situation === "open") return raiseTo(action.label, OPEN_SIZE_BB[key.tier]);
@@ -116,46 +119,45 @@ function verdictFor(chart: ChartRef, action: ActionAdvice): Verdict {
   return raiseTo(action.label, 3 + (key.limpers === "1" ? 1 : 2) + (fromBlinds(key.position) ? 1 : 0));
 }
 
-const formatBb = (bb: number) => `${Math.round(bb * 100) / 100}bb`;
-
 /** "to 2.5bb", "to 2.5bb (500 chips)" with the big blind in chips, "all-in", or null when the action has no size. */
-export function verdictSize(verdict: Verdict, bigBlind?: number): string | null {
-  if (verdict.allIn) return "all-in";
+export function verdictSize(verdict: Verdict, locale: Locale, bigBlind?: number): string | null {
+  const t = messages(locale).advisor;
+  if (verdict.allIn) return t.allIn;
   if (verdict.sizeBb === null) return null;
-  const chips = bigBlind ? ` (${Math.round(verdict.sizeBb * bigBlind).toLocaleString("en-US")} chips)` : "";
-  return `to ${formatBb(verdict.sizeBb)}${chips}`;
+  return t.raiseTo(verdict.sizeBb, bigBlind ? Math.round(verdict.sizeBb * bigBlind) : null);
 }
 
-function situationText(situation: PreflopSituation): string {
-  if (situation.kind === "folded") return "folded to you";
-  if (situation.kind === "limps") return situation.limpers === "1" ? "1 limper before you" : "2+ limpers before you";
-  if (situation.kind === "open") return `${situation.opener} opened`;
-  return `${situation.pusher} pushed`;
+function situationText(situation: PreflopSituation, t: Messages["advisor"]): string {
+  if (situation.kind === "folded") return t.foldedToYou;
+  if (situation.kind === "limps") return t.limpersBefore(situation.limpers);
+  if (situation.kind === "open") return t.openedBy(situation.opener);
+  return t.pushedBy(situation.pusher);
 }
 
 /** The Chart's answer for the hero's hand: frequencies, a verdict with its size, and a sentence of context. */
-export function advisePreflop(question: PreflopQuestion): PreflopAdvice {
-  const reason = problem(question);
+export function advisePreflop(question: PreflopQuestion, locale: Locale): PreflopAdvice {
+  const t = messages(locale);
+  const reason = problem(question, t.advisor);
   if (reason) return { kind: "invalid", reason };
-  if (question.situation.kind === "folded" && question.position === "BB") return { kind: "walk", reason: "Folded to you in the BB: you win the blinds." };
+  if (question.situation.kind === "folded" && question.position === "BB") return { kind: "walk", reason: t.advisor.walkReason };
 
-  const { chart, note } = resolveChart(question);
+  const { chart, note } = resolveChart(question, t.advisor);
   const combo = comboId(question.hand[0], question.hand[1]);
   const built = chart.kind === "chart" ? getChart(chart.key) : getPushFoldChart(chart.key);
-  const actions = built.actions.map(({ id, label, colour, range }): ActionAdvice => ({ colour, frequency: range[combo], id, label }));
+  const actions = built.actions.map(({ id, name, colour, range }): ActionAdvice => ({ colour, frequency: range[combo], id, label: t.actions[name], name }));
   const main = actions.reduce((best, action) => (action.frequency > best.frequency ? action : best));
 
   const tier = stackTierFor(question.depth);
-  const depthLabel = chart.kind === "push-fold" || tier === "push-fold" ? formatBb(chart.kind === "push-fold" ? chart.key.depth : question.depth) : STACK_TIER_LABELS[tier];
+  const depthLabel = chart.kind === "push-fold" || tier === "push-fold" ? formatBb(chart.kind === "push-fold" ? chart.key.depth : question.depth, locale) : STACK_TIER_LABELS[tier];
   return {
     actions,
     baseline: chart.kind === "chart" && getChart(chart.key).baseline,
     chart,
-    chartTitle: chart.kind === "chart" ? built.title : describePushFold(chart.key),
-    context: `${HAND_CLASS_NAMES[handClassOfCombo(combo)]} in ${question.position}, ${depthLabel}, ${situationText(question.situation)}`,
+    chartTitle: chart.kind === "chart" ? describeChart(chart.key, locale) : describePushFold(chart.key, locale),
+    context: t.advisor.context(HAND_CLASS_NAMES[handClassOfCombo(combo)], question.position, depthLabel, situationText(question.situation, t.advisor)),
     href: chart.kind === "chart" ? chartHref(chart.key) : pushFoldHref(chart.key),
     kind: "advice",
     note,
-    verdict: verdictFor(chart, main),
+    verdict: verdictFor(chart, main, t),
   };
 }

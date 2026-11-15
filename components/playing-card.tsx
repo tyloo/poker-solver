@@ -1,22 +1,9 @@
-import type { Card, Rank } from "@/lib/poker/card";
-import styles from "./playing-card.module.css";
-import { SUIT_COLOR, SUIT_NAMES, SuitIcon } from "./suit-icon";
+"use client";
 
-const RANK_NAMES: Record<Rank, string> = {
-  A: "Ace",
-  K: "King",
-  Q: "Queen",
-  J: "Jack",
-  T: "Ten",
-  "9": "Nine",
-  "8": "Eight",
-  "7": "Seven",
-  "6": "Six",
-  "5": "Five",
-  "4": "Four",
-  "3": "Three",
-  "2": "Two",
-};
+import type { Card } from "@/lib/poker/card";
+import { useI18n } from "./i18n-provider";
+import styles from "./playing-card.module.css";
+import { SUIT_COLOR, SuitIcon } from "./suit-icon";
 
 type Props = {
   /** `null` shows the back; switching to a card flips it face up. */
@@ -26,7 +13,8 @@ type Props = {
 };
 
 export function PlayingCard({ card, size = "lg", className = "" }: Props) {
-  const label = card ? `${RANK_NAMES[card.rank]} of ${SUIT_NAMES[card.suit]}` : "Face-down card";
+  const { cards } = useI18n().t;
+  const label = card ? cards.name(cards.ranks[card.rank], cards.suits[card.suit]) : cards.faceDown;
   const sizeClass = size === "lg" ? "" : styles[size];
 
   return (

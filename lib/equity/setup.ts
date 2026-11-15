@@ -1,3 +1,5 @@
+import type { Locale } from "@/lib/i18n/locale";
+import { messages } from "@/lib/i18n/messages";
 import { type CardId, cardFromId, cardId, formatCards, parseCards } from "@/lib/poker/card";
 import { parseRange } from "@/lib/poker/range";
 import type { Codec } from "@/lib/url-state";
@@ -58,17 +60,17 @@ export const boardCodec = cardsCodec(5);
 export const deadCodec = cardsCodec(MAX_DEAD_CARDS);
 
 /** Engine input, or the first thing still missing. Card clashes are left to the engine to report. */
-export function toEquityInput(setup: EquitySetup): { ok: true; input: EquityInput } | { ok: false; reason: string } {
+export function toEquityInput(setup: EquitySetup, locale: Locale): { ok: true; input: EquityInput } | { ok: false; reason: string } {
+  const t = messages(locale).equity;
   const players: EquityPlayer[] = [];
   for (const [index, player] of setup.players.entries()) {
-    const name = `Player ${index + 1}`;
     if (player.kind === "hand") {
-      if (player.cards.length !== 2) return { ok: false, reason: `Pick two cards for ${name}.` };
+      if (player.cards.length !== 2) return { ok: false, reason: t.pickTwo(index) };
       players.push({ cards: player.cards, kind: "hand" });
     } else if (player.kind === "range") {
-      const parsed = parseRange(player.range);
-      if (!parsed.ok) return { ok: false, reason: `${name}'s range: ${parsed.error}` };
-      if (!parsed.range.some((weight) => weight > 0)) return { ok: false, reason: `Paint a range for ${name}.` };
+      const parsed = parseRange(player.range, locale);
+      if (!parsed.ok) return { ok: false, reason: t.rangeError(index, parsed.error) };
+      if (!parsed.range.some((weight) => weight > 0)) return { ok: false, reason: t.paintFor(index) };
       players.push({ kind: "range", range: parsed.range });
     } else players.push({ kind: "random" });
   }

@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { type CardId, cardFromId, cardId, RANKS, type Rank, SUITS } from "@/lib/poker/card";
 import { primaryButton, textButton } from "./buttons";
+import { useI18n } from "./i18n-provider";
 import { PlayingCard } from "./playing-card";
 import { Sheet } from "./sheet";
-import { SUIT_COLOR, SUIT_NAMES, SuitIcon } from "./suit-icon";
+import { SUIT_COLOR, SuitIcon } from "./suit-icon";
 
 type Props = {
   title: string;
@@ -23,6 +24,7 @@ const KEY_RANKS: Record<string, Rank> = { "0": "T", "1": "T" };
 
 /** Rank-then-suit keypad in a bottom sheet. Tap a picked card to take it back. */
 export function CardKeypadSheet({ title, value, max, unavailable, onDone, onClose }: Props) {
+  const { t } = useI18n();
   const [picked, setPicked] = useState<CardId[]>(() => value.slice(0, max));
   const [rank, setRank] = useState<Rank | null>(null);
 
@@ -60,18 +62,18 @@ export function CardKeypadSheet({ title, value, max, unavailable, onDone, onClos
         <>
           {picked.length > 0 && (
             <button type="button" onClick={() => setPicked([])} className={textButton}>
-              Clear
+              {t.common.clear}
             </button>
           )}
           <button type="button" onClick={() => onDone(picked)} className={primaryButton}>
-            Done
+            {t.common.done}
           </button>
         </>
       }
     >
       {/* biome-ignore lint/a11y/noStaticElementInteractions: typing ranks and suits is a shortcut for the buttons below. */}
       <div onKeyDown={onKeyDown}>
-        <ul aria-label="Picked cards" className="m-0 mb-5 flex min-h-[3.75rem] list-none flex-wrap gap-2 p-0">
+        <ul aria-label={t.keypad.picked} className="m-0 mb-5 flex min-h-[3.75rem] list-none flex-wrap gap-2 p-0">
           {picked.map((card) => (
             <li key={card}>
               <button
@@ -79,7 +81,7 @@ export function CardKeypadSheet({ title, value, max, unavailable, onDone, onClos
                 onClick={() => setPicked(picked.filter((other) => other !== card))}
                 className="rounded-md focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-3"
               >
-                <span className="sr-only">Remove </span>
+                <span className="sr-only">{t.keypad.removeSr}</span>
                 <PlayingCard card={cardFromId(card)} size="sm" />
               </button>
             </li>
@@ -90,7 +92,7 @@ export function CardKeypadSheet({ title, value, max, unavailable, onDone, onClos
         </ul>
 
         <fieldset className="m-0 mb-3 border-0 p-0">
-          <legend className="mb-2 text-dust">{rank ? `${rankLabel(rank)}: now pick a suit` : "Pick a rank, then a suit"}</legend>
+          <legend className="mb-2 text-dust">{rank ? t.keypad.pickSuit(rankLabel(rank)) : t.keypad.pickRank}</legend>
           <div className="grid grid-cols-7 gap-1.5">
             {RANKS.map((r) => {
               const available = !full && SUITS.some((suit) => free(r, suit));
@@ -124,7 +126,7 @@ export function CardKeypadSheet({ title, value, max, unavailable, onDone, onClos
                 className={`flex h-14 items-center justify-center rounded-xl bg-chalk focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-2 disabled:opacity-35 ${SUIT_COLOR[suit]}`}
               >
                 <SuitIcon suit={suit} className="h-7 w-7" />
-                <span className="sr-only">{rank ? `${rankLabel(rank)} of ${SUIT_NAMES[suit]}` : SUIT_NAMES[suit]}</span>
+                <span className="sr-only">{rank ? t.cards.name(rankLabel(rank), t.cards.suits[suit]) : t.cards.suits[suit]}</span>
               </button>
             );
           })}

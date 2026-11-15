@@ -1,6 +1,8 @@
+import type { Locale } from "@/lib/i18n/locale";
 import { createEquityJob, type EquityInput, type EquityOptions, type EquityResult } from "./engine";
 
-export type EquityRequest = { type: "start"; id: number; input: EquityInput } | { type: "stop" };
+/** `locale` is the language of error messages. */
+export type EquityRequest = { type: "start"; id: number; input: EquityInput; locale?: Locale } | { type: "stop" };
 
 export type EquityResponse = { type: "progress" | "done"; id: number; result: EquityResult } | { type: "error"; id: number; message: string };
 
@@ -28,7 +30,7 @@ export function createEquityRunner(post: (message: EquityResponse) => void, opti
     if (request.type === "stop") return;
 
     const { id } = request;
-    const outcome = createEquityJob(request.input, options.equity);
+    const outcome = createEquityJob(request.input, { ...options.equity, locale: request.locale });
     if (!outcome.ok) {
       post({ id, message: outcome.error, type: "error" });
       return;

@@ -1,3 +1,5 @@
+import type { Locale } from "@/lib/i18n/locale";
+import { messages } from "@/lib/i18n/messages";
 import { createHandSet } from "./evaluation";
 import { type Spot, validateSpot } from "./spot";
 import { countTree, type TreeStats } from "./tree";
@@ -31,11 +33,12 @@ export function estimateSpot(spot: Spot, budgetBytes = MEMORY_BUDGET_BYTES): Est
   return { estimate: { ...stats, budgetBytes, combos, fits: memoryBytes <= budgetBytes, memoryBytes }, ok: true };
 }
 
-export const formatMegabytes = (bytes: number) => `${Math.max(1, Math.ceil(bytes / 2 ** 20))} MB`;
+export const formatMegabytes = (bytes: number, locale: Locale) => messages(locale).solver.megabytes(bytes);
 
 /** Why a Spot is refused, with only the fixes its setup offers. The engine and the Solver tool both show it. */
-export function overBudgetMessage(estimate: SpotEstimate, spot: Pick<Spot, "betSizes" | "board">): string {
-  const fixes = ["Narrow the ranges", ...(spot.betSizes.length > 1 ? ["drop a bet size"] : []), ...(spot.board.length < 5 ? ["start from a later street"] : [])];
-  const advice = fixes.length > 1 ? `${fixes.slice(0, -1).join(", ")} or ${fixes.at(-1)}` : fixes[0];
-  return `This spot needs about ${formatMegabytes(estimate.memoryBytes)}, above the ${formatMegabytes(estimate.budgetBytes)} budget. ${advice}.`;
+export function overBudgetMessage(estimate: SpotEstimate, spot: Pick<Spot, "betSizes" | "board">, locale: Locale): string {
+  return messages(locale).solver.overBudget(formatMegabytes(estimate.memoryBytes, locale), formatMegabytes(estimate.budgetBytes, locale), {
+    betSize: spot.betSizes.length > 1,
+    laterStreet: spot.board.length < 5,
+  });
 }

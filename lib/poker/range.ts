@@ -1,3 +1,5 @@
+import type { Locale } from "@/lib/i18n/locale";
+import { type Messages, messages } from "@/lib/i18n/messages";
 import { RANKS } from "./card";
 import { COMBO_COUNT, COMBO_HAND_CLASS, type ComboId, formatCombo, HAND_CLASS_COUNT, HAND_CLASS_NAMES, type HandClassId, handClassCombos, parseCombo } from "./combo";
 
@@ -57,9 +59,9 @@ function classIds({ high, low, suffix }: ClassToken): HandClassId[] {
 }
 
 /** Hand classes named by an entry without its frequency, or an error message. */
-function expandEntry(entry: string): HandClassId[] | ComboId | string {
+function expandEntry(entry: string, t: Messages["rangeErrors"]): HandClassId[] | ComboId | string {
   const text = entry.toUpperCase();
-  if (COMBO_RE.test(text)) return parseCombo(entry) ?? `"${entry}" repeats a card`;
+  if (COMBO_RE.test(text)) return parseCombo(entry) ?? t.repeatsCard(entry);
 
   const single = SINGLE_RE.exec(text);
   const plus = PLUS_RE.exec(text);
@@ -71,8 +73,8 @@ function expandEntry(entry: string): HandClassId[] | ComboId | string {
       : span
         ? [classToken(span[1], span[2], span[3]), classToken(span[4], span[5], span[6])]
         : null;
-  if (!tokens) return `Invalid entry "${entry}"`;
-  if (tokens.some((token) => token.high === token.low && token.suffix !== "")) return `Pairs cannot be suited or offsuit: "${entry}"`;
+  if (!tokens) return t.invalid(entry);
+  if (tokens.some((token) => token.high === token.low && token.suffix !== "")) return t.suitedPair(entry);
   if (single) return classIds(tokens[0]);
 
   const classes: HandClassId[] = [];
@@ -86,22 +88,23 @@ function expandEntry(entry: string): HandClassId[] | ComboId | string {
 
   const [from, to] = tokens;
   const fromPair = from.high === from.low;
-  if (fromPair !== (to.high === to.low)) return `"${entry}": both ends must be pairs, or neither`;
+  if (fromPair !== (to.high === to.low)) return t.pairEnds(entry);
   if (fromPair) {
     for (let pair = Math.max(from.high, to.high); pair >= Math.min(from.high, to.high); pair--) classes.push(pair * 14);
     return classes;
   }
-  if (from.high !== to.high) return `"${entry}": both ends must share the first rank`;
-  if (from.suffix !== to.suffix) return `"${entry}": both ends must be suited, both offsuit, or both unmarked`;
+  if (from.high !== to.high) return t.firstRank(entry);
+  if (from.suffix !== to.suffix) return t.suffix(entry);
   for (let kicker = Math.max(from.low, to.low); kicker >= Math.min(from.low, to.low); kicker--) classes.push(...classIds({ high: from.high, low: kicker, suffix: from.suffix }));
   return classes;
 }
 
 /**
  * Parses a range string such as "22+, A2s+, KTs-K8s, AKo, AsKd, ATo:0.5".
- * Entries are comma-separated; each Combo may be named only once.
+ * Entries are comma-separated; each Combo may be named only once. Errors are in `locale`.
  */
-export function parseRange(text: string): RangeParseResult {
+export function parseRange(text: string, locale: Locale = "en"): RangeParseResult {
+  const t = messages(locale).rangeErrors;
   const range = createRange();
   const assigned = new Uint8Array(COMBO_COUNT);
   for (const rawEntry of text.split(",")) {
@@ -113,10 +116,10 @@ export function parseRange(text: string): RangeParseResult {
     if (colon >= 0) {
       const weightText = entry.slice(colon + 1).trim();
       weight = Number(weightText);
-      if (!WEIGHT_RE.test(weightText) || !(weight > 0 && weight <= 1)) return { error: `Invalid frequency in "${entry}": use a number above 0 and at most 1`, ok: false };
+      if (!WEIGHT_RE.test(weightText) || !(weight > 0 && weight <= 1)) return { error: t.frequency(entry), ok: false };
     }
 
-    const expanded = expandEntry(body);
+    const expanded = expandEntry(body, t);
     if (typeof expanded === "string") return { error: expanded, ok: false };
     const combos = typeof expanded === "number" ? [expanded] : expanded.flatMap((cls) => handClassCombos(cls));
     const overlapping = combos.filter((combo) => assigned[combo]);
@@ -124,7 +127,7 @@ export function parseRange(text: string): RangeParseResult {
       const cls = COMBO_HAND_CLASS[overlapping[0]];
       const wholeClass = handClassCombos(cls).every((combo) => assigned[combo] && combos.includes(combo));
       const name = wholeClass ? HAND_CLASS_NAMES[cls] : formatCombo(overlapping[0]);
-      return { error: `${name} appears twice: "${entry}" overlaps an earlier entry`, ok: false };
+      return { error: t.twice(name, entry), ok: false };
     }
     for (const combo of combos) {
       assigned[combo] = 1;

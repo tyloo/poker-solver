@@ -1,6 +1,8 @@
 import { estimateRange, getChart } from "@/lib/charts/charts";
 import { type ActionId, type ChartKey, chartKeyFor, DEFAULT_SELECTION, openerGroupOf } from "@/lib/charts/model";
-import { PLAYER_TYPE_LABELS, type PlayerType } from "@/lib/charts/player-types";
+import type { PlayerType } from "@/lib/charts/player-types";
+import type { Locale } from "@/lib/i18n/locale";
+import { messages } from "@/lib/i18n/messages";
 import type { CardId } from "@/lib/poker/card";
 import type { Range } from "@/lib/poker/range";
 import { type Position, postflopOrder, preflopOrder, tablePositions } from "@/lib/poker/table";
@@ -38,33 +40,30 @@ export type PostflopVerdictKind = "call" | "fold" | "push" | "bet" | "check";
 
 export type PostflopVerdict = { kind: PostflopVerdictKind; title: string; reason: string };
 
-const percent = (share: number) => `${Number((share * 100).toFixed(1))}%`;
-const ratio = (value: number) => `${Number(value.toFixed(1))}`;
-
 /**
  * Heuristic, not a solve. Facing a bet: call when equity beats the price, push instead when the SPR is low, else fold.
  * First to act: bet when equity is well above a fair share of the pot, else check.
  */
-export function postflopVerdict({ equity, opponents, ...amounts }: PostflopAmounts & { equity: number; opponents: number }): PostflopVerdict {
+export function postflopVerdict({ equity, opponents, ...amounts }: PostflopAmounts & { equity: number; opponents: number }, locale: Locale): PostflopVerdict {
+  const t = messages(locale).postflop;
+  const verdict = (kind: PostflopVerdictKind, reason: string): PostflopVerdict => ({ kind, reason, title: t.verdicts[kind] });
   const { call, requiredEquity, spr } = postflopNumbers(amounts);
   if (call > 0) {
-    if (equity < requiredEquity) return { kind: "fold", reason: `${percent(equity)} equity is short of the ${percent(requiredEquity)} the price needs.`, title: "Fold" };
-    if (call >= amounts.stack)
-      return { kind: "call", reason: `${percent(equity)} equity beats the ${percent(requiredEquity)} the price needs, and calling puts you all-in.`, title: "Call" };
-    if (spr <= LOW_SPR) return { kind: "push", reason: `${percent(equity)} equity beats the price, and an SPR of ${ratio(spr)} is too low to just call.`, title: "Push" };
-    return { kind: "call", reason: `${percent(equity)} equity beats the ${percent(requiredEquity)} the price needs.`, title: "Call" };
+    if (equity < requiredEquity) return verdict("fold", t.short(equity, requiredEquity));
+    if (call >= amounts.stack) return verdict("call", t.callAllIn(equity, requiredEquity));
+    if (spr <= LOW_SPR) return verdict("push", t.lowSpr(equity, spr));
+    return verdict("call", t.beats(equity, requiredEquity));
   }
-  const strong = 1 / (opponents + 1) + STRONG_MARGIN;
-  if (equity >= strong) return { kind: "bet", reason: `${percent(equity)} equity is well above your ${percent(1 / (opponents + 1))} share.`, title: "Bet" };
-  return { kind: "check", reason: `${percent(equity)} equity is not far enough above your ${percent(1 / (opponents + 1))} share to bet.`, title: "Check" };
+  const fair = 1 / (opponents + 1);
+  return equity >= fair + STRONG_MARGIN ? verdict("bet", t.strong(equity, fair)) : verdict("check", t.weak(equity, fair));
 }
 
 /** How the hero reached the flop: their raising Chart and the action they took from it. */
 export type PostflopLine = { question: PreflopQuestion; key: ChartKey; heroAction: ActionId };
 
-export function postflopLine(question: PreflopQuestion, advice: PreflopAdvice): { ok: true; line: PostflopLine } | { ok: false; reason: string } {
+export function postflopLine(question: PreflopQuestion, advice: PreflopAdvice, locale: Locale): { ok: true; line: PostflopLine } | { ok: false; reason: string } {
   if (advice.kind !== "advice") return { ok: false, reason: advice.reason };
-  if (advice.chart.kind === "push-fold") return { ok: false, reason: "Push/fold hands go all-in preflop, so there is no postflop decision." };
+  if (advice.chart.kind === "push-fold") return { ok: false, reason: messages(locale).postflop.noPostflop };
   // A hand the Chart folds is assumed to have played its most frequent other action (or the Chart's first one).
   const played = advice.actions.filter((action) => action.id !== "fold");
   const action = played.reduce((best, next) => (next.frequency > best.frequency ? next : best));
@@ -94,17 +93,19 @@ export type Opponent = { position: Position; type: PlayerType };
 export type OpponentRange = { ok: true; range: Range; line: string; note: string | null } | { ok: false; error: string };
 
 /** The estimated Range of an opponent of a Player type, from the Preflop line. */
-export function opponentRange(line: PostflopLine, { position, type }: Opponent): OpponentRange {
-  if (!opponentPositions(line).includes(position)) return { error: `${position} folded before the flop.`, ok: false };
+export function opponentRange(line: PostflopLine, { position, type }: Opponent, locale: Locale): OpponentRange {
+  const t = messages(locale);
+  const lines = t.postflop.lines;
+  if (!opponentPositions(line).includes(position)) return { error: t.postflop.foldedBefore(position), ok: false };
   const { question, key, heroAction } = line;
   const { tier } = key;
   const hero = question.position;
   const { situation } = question;
-  const name = PLAYER_TYPE_LABELS[type];
+  const name = t.charts.playerTypes[type];
 
   const from = (chart: ChartKey, action: ActionId, description: string, note: string | null = null): OpponentRange => {
     const range = estimateRange(type, chart, action);
-    if (!range) return { error: `${name} players never take that line from ${position}.`, ok: false };
+    if (!range) return { error: t.postflop.neverLine(name, position), ok: false };
     return { line: description, note, ok: true, range };
   };
   const callerOf = (opener: Position, description: string, note: string | null = null) =>
@@ -113,24 +114,24 @@ export function opponentRange(line: PostflopLine, { position, type }: Opponent):
   if (situation.kind === "open") {
     if (position === situation.opener) {
       return heroAction === "raise"
-        ? from({ position, situation: "open", tier }, "raise", "called your 3-bet", `No Chart covers calling a 3-bet, so this is ${position}'s open Range.`)
-        : from({ position, situation: "open", tier }, "raise", "opened");
+        ? from({ position, situation: "open", tier }, "raise", lines.calledThreeBet, t.postflop.threeBetNote(position))
+        : from({ position, situation: "open", tier }, "raise", lines.opened);
     }
-    return callerOf(situation.opener, "called the open");
+    return callerOf(situation.opener, lines.calledOpen);
   }
   if (situation.kind === "folded") {
-    if (heroAction === "limp" && position === "BB") return from({ limpers: "1", position, situation: "vs-limpers", tier }, "check", "checked");
-    return callerOf(hero, "called your open");
+    if (heroAction === "limp" && position === "BB") return from({ limpers: "1", position, situation: "vs-limpers", tier }, "check", lines.checked);
+    return callerOf(hero, lines.calledYourOpen);
   }
   // Behind limpers.
   if (preflopOrder(position) < preflopOrder(hero)) {
-    if (estimateRange(type, { position, situation: "open", tier }, "limp")) return from({ position, situation: "open", tier }, "limp", "limped");
+    if (estimateRange(type, { position, situation: "open", tier }, "limp")) return from({ position, situation: "open", tier }, "limp", lines.limped);
     const overlimp = chartKeyFor({ ...DEFAULT_SELECTION, limpers: "1", position, situation: "vs-limpers", tier });
-    return from(overlimp, "limp", "limped", `${name} players never open-limp from ${position} in the repo data, so this is their overlimp Range.`);
+    return from(overlimp, "limp", lines.limped, t.postflop.openLimpNote(name, position));
   }
-  if (heroAction === "raise") return callerOf(hero, "called your raise", "No Chart covers calling an iso-raise, so this is the Vs open call Range.");
-  if (position === "BB") return from({ limpers: "2+", position, situation: "vs-limpers", tier }, "check", "checked");
-  return from({ limpers: "2+", position, situation: "vs-limpers", tier }, "limp", "overlimped");
+  if (heroAction === "raise") return callerOf(hero, lines.calledRaise, t.postflop.isoRaiseNote);
+  if (position === "BB") return from({ limpers: "2+", position, situation: "vs-limpers", tier }, "check", lines.checked);
+  return from({ limpers: "2+", position, situation: "vs-limpers", tier }, "limp", lines.overlimped);
 }
 
 /** The hero's own Range: their Chart's Range for the action they took. */

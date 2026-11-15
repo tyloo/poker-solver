@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "export",
   reactCompiler: true,
+  // English and French have a root layout each, so the 404 page is app/global-not-found.tsx.
+  experimental: { globalNotFound: true },
   images: { unoptimized: true },
   turbopack: {
     rules: {

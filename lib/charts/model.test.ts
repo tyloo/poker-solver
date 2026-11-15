@@ -105,19 +105,19 @@ describe("groupAvailable", () => {
 
 describe("chartActions", () => {
   it("offers raise and fold when opening, plus limp from the SB", () => {
-    expect(chartActions({ position: "CO", situation: "open", tier: "40bb+" }).map((action) => action.label)).toEqual(["Raise", "Fold"]);
+    expect(chartActions({ position: "CO", situation: "open", tier: "40bb+" }).map((action) => action.name)).toEqual(["raise", "fold"]);
     expect(chartActions({ position: "SB", situation: "open", tier: "40bb+" }).map((action) => action.id)).toEqual(["raise", "limp", "fold"]);
   });
 
   it("names the 3-bet, the iso-raise and the overlimp", () => {
-    expect(chartActions({ opener: "late", position: "BTN", situation: "vs-open", tier: "25bb" }).map((action) => action.label)).toEqual(["3-bet", "Call", "Fold"]);
-    expect(chartActions({ limpers: "1", position: "CO", situation: "vs-limpers", tier: "25bb" }).map((action) => action.label)).toEqual(["Iso-raise", "Overlimp", "Fold"]);
+    expect(chartActions({ opener: "late", position: "BTN", situation: "vs-open", tier: "25bb" }).map((action) => action.name)).toEqual(["3-bet", "call", "fold"]);
+    expect(chartActions({ limpers: "1", position: "CO", situation: "vs-limpers", tier: "25bb" }).map((action) => action.name)).toEqual(["iso-raise", "overlimp", "fold"]);
   });
 
   it("lets the BB check behind limpers instead of folding", () => {
-    expect(chartActions({ limpers: "1", position: "BB", situation: "vs-limpers", tier: "25bb" }).map((action) => [action.id, action.label])).toEqual([
-      ["raise", "Raise"],
-      ["check", "Check"],
+    expect(chartActions({ limpers: "1", position: "BB", situation: "vs-limpers", tier: "25bb" }).map((action) => [action.id, action.name])).toEqual([
+      ["raise", "raise"],
+      ["check", "check"],
     ]);
   });
 
@@ -130,10 +130,16 @@ describe("chartActions", () => {
 
 describe("describeChart", () => {
   it("names the Chart in plain words", () => {
-    expect(describeChart({ position: "CO", situation: "open", tier: "40bb+" })).toBe("CO open, 40bb+");
-    expect(describeChart({ opener: "late", position: "BB", situation: "vs-open", tier: "15-20bb" })).toBe("BB vs late open, 15–20bb");
-    expect(describeChart({ limpers: "2+", position: "SB", situation: "vs-limpers", tier: "25bb" })).toBe("SB vs 2+ limpers, 25bb");
-    expect(describeChart({ limpers: "1", position: "BTN", situation: "vs-limpers", tier: "25bb" })).toBe("BTN vs 1 limper, 25bb");
+    expect(describeChart({ position: "CO", situation: "open", tier: "40bb+" }, "en")).toBe("CO open, 40bb+");
+    expect(describeChart({ opener: "late", position: "BB", situation: "vs-open", tier: "15-20bb" }, "en")).toBe("BB vs late open, 15–20bb");
+    expect(describeChart({ limpers: "2+", position: "SB", situation: "vs-limpers", tier: "25bb" }, "en")).toBe("SB vs 2+ limpers, 25bb");
+    expect(describeChart({ limpers: "1", position: "BTN", situation: "vs-limpers", tier: "25bb" }, "en")).toBe("BTN vs 1 limper, 25bb");
+  });
+
+  it("names the Chart in French", () => {
+    expect(describeChart({ position: "CO", situation: "open", tier: "40bb+" }, "fr")).toBe("Open en CO, 40bb+");
+    expect(describeChart({ opener: "late", position: "BB", situation: "vs-open", tier: "15-20bb" }, "fr")).toBe("BB face à un open en fin de parole, 15–20bb");
+    expect(describeChart({ limpers: "2+", position: "SB", situation: "vs-limpers", tier: "25bb" }, "fr")).toBe("SB face à 2+ limpers, 25bb");
   });
 });
 

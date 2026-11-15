@@ -1,7 +1,11 @@
+"use client";
+
+import { useI18n } from "@/components/i18n-provider";
 import type { GlossaryGroup } from "@/lib/glossary/glossary";
 
 /** Terms grouped by topic; each term carries its anchor id, so /glossary#<id> scrolls to it. `target` highlights the linked term. */
 export function GlossaryList({ groups, target = null }: { groups: readonly GlossaryGroup[]; target?: string | null }) {
+  const { t } = useI18n();
   return (
     <div className="flex flex-col gap-10">
       {groups.map(({ topic, label, terms }) => (
@@ -18,7 +22,7 @@ export function GlossaryList({ groups, target = null }: { groups: readonly Gloss
                 </dt>
                 <dd className="m-0 mt-1">
                   <p className="m-0">{entry.definition}</p>
-                  {entry.example && <p className="m-0 mt-1 text-dust">{`Example: ${entry.example}`}</p>}
+                  {entry.example && <p className="m-0 mt-1 text-dust">{t.glossary.example(entry.example)}</p>}
                 </dd>
               </div>
             ))}

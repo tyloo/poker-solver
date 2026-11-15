@@ -1,3 +1,5 @@
+import type { Locale } from "@/lib/i18n/locale";
+import { type Messages, messages } from "@/lib/i18n/messages";
 import { CARD_COUNT, type CardId, cardFromId } from "@/lib/poker/card";
 import { COMBO_COUNT, COMBO_HI, COMBO_LO, comboId } from "@/lib/poker/combo";
 import { evaluateMasks } from "@/lib/poker/evaluator";
@@ -29,6 +31,8 @@ export type EquityOptions = {
   /** Monte Carlo stops once every player's equity has at most this standard error. */
   targetError?: number;
   random?: () => number;
+  /** Language of the error messages. */
+  locale?: Locale;
 };
 
 export type EquityJob = {
@@ -85,21 +89,21 @@ type Prepared = {
   remaining: number;
 };
 
-function prepare(input: EquityInput): Prepared | string {
+function prepare(input: EquityInput, t: Messages["equity"]): Prepared | string {
   const { players, board, dead } = input;
-  if (players.length < 2) return "Add at least 2 players.";
-  if (players.length > MAX_PLAYERS) return `At most ${MAX_PLAYERS} players.`;
-  if (board.length > 5) return "The board has at most 5 cards.";
+  if (players.length < 2) return t.tooFew;
+  if (players.length > MAX_PLAYERS) return t.tooMany(MAX_PLAYERS);
+  if (board.length > 5) return t.boardSize;
   for (let i = 0; i < players.length; i++) {
     const player = players[i];
-    if (player.kind === "hand" && player.cards.length !== 2) return `Player ${i + 1} needs two cards.`;
+    if (player.kind === "hand" && player.cards.length !== 2) return t.needsTwo(i);
   }
 
   const blocked = new Uint8Array(CARD_COUNT);
   const known = [...players.flatMap((player) => (player.kind === "hand" ? player.cards : [])), ...board, ...dead];
   for (const card of known) {
-    if (!Number.isInteger(card) || card < 0 || card >= CARD_COUNT) return "Unknown card.";
-    if (blocked[card]) return `${cardLabel(card)} is used twice.`;
+    if (!Number.isInteger(card) || card < 0 || card >= CARD_COUNT) return t.unknownCard;
+    if (blocked[card]) return t.usedTwice(cardLabel(card));
     blocked[card] = 1;
   }
 
@@ -123,18 +127,18 @@ function prepare(input: EquityInput): Prepared | string {
       list.push(combo);
       listWeights.push(Math.min(weight, 1));
     }
-    if (!named) return `Player ${i + 1}'s range is empty.`;
-    if (list.length === 0) return `Player ${i + 1}'s range has no hand left after the cards in use.`;
+    if (!named) return t.rangeEmpty(i);
+    if (list.length === 0) return t.rangeBlocked(i);
     combos.push(Uint16Array.from(list));
     weights.push(Float64Array.from(listWeights));
   }
 
   const dealt = players.filter((player) => player.kind !== "hand").length * 2;
   const remaining = CARD_COUNT - known.length - dealt;
-  if (remaining < 5 - board.length) return "Not enough cards left to deal the board.";
+  if (remaining < 5 - board.length) return t.noBoard;
 
   const ranged = players.flatMap((player, i) => (player.kind === "range" ? [i] : []));
-  if (!canDeal(ranged, combos)) return "These ranges cannot be dealt together: they need the same cards.";
+  if (!canDeal(ranged, combos)) return t.cannotDeal;
 
   return { blocked, board, combos, players, remaining, weights };
 }
@@ -366,7 +370,7 @@ function exactJob(prepared: Prepared): EquityJob {
  * Random deals: Range players are drawn by weight and rejected together on a card clash (so deals stay
  * proportional to the product of weights), then random players and the board come off the remaining deck.
  */
-function monteCarloJob(prepared: Prepared, options: Required<Omit<EquityOptions, "exactLimit">>): EquityJob {
+function monteCarloJob(prepared: Prepared, options: Required<Omit<EquityOptions, "exactLimit" | "locale">>, t: Messages["equity"]): EquityJob {
   const { combos, weights, blocked, board, players } = prepared;
   const { maxSamples, minSamples, targetError, random } = options;
   const count = players.length;
@@ -458,7 +462,7 @@ function monteCarloJob(prepared: Prepared, options: Required<Omit<EquityOptions,
       while (!done && budget > 0) {
         if (!sample()) {
           if (++rejections > MAX_REJECTIONS) {
-            error = "These ranges overlap too much to sample.";
+            error = t.overlapTooMuch;
             done = true;
           }
           continue;
@@ -475,13 +479,14 @@ function monteCarloJob(prepared: Prepared, options: Required<Omit<EquityOptions,
 }
 
 export function createEquityJob(input: EquityInput, options: EquityOptions = {}): EquityJobOutcome {
-  const prepared = prepare(input);
+  const t = messages(options.locale ?? "en").equity;
+  const prepared = prepare(input, t);
   if (typeof prepared === "string") return { error: prepared, ok: false };
   const { exactLimit, maxSamples, minSamples, targetError } = { ...DEFAULTS, ...options };
   const deals = prepared.combos.reduce((product, list) => product * list.length, 1);
   const evaluations = deals * choose(prepared.remaining, 5 - prepared.board.length) * prepared.players.length;
   if (evaluations <= exactLimit) return { job: exactJob(prepared), ok: true };
-  return { job: monteCarloJob(prepared, { maxSamples, minSamples, random: options.random ?? Math.random, targetError }), ok: true };
+  return { job: monteCarloJob(prepared, { maxSamples, minSamples, random: options.random ?? Math.random, targetError }, t), ok: true };
 }
 
 /** Runs a job to the end in one go (tests and small inputs). */

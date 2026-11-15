@@ -2,7 +2,9 @@
 // network-first so a new deploy shows up, falling back to the cache when offline.
 // scripts/precache.mjs fills PRECACHE with the build's assets (worker chunks included) and versions CACHE.
 const CACHE = "poker-solver-v1";
-const PAGES = ["/", "/equity", "/ranges", "/solver", "/glossary"];
+const TOOLS = ["/equity", "/ranges", "/solver", "/glossary"];
+// English at "/", French under "/fr".
+const PAGES = ["/", ...TOOLS, "/fr", ...TOOLS.map((path) => `/fr${path}`)];
 const PRECACHE = [];
 
 self.addEventListener("install", (event) => {
@@ -51,9 +53,10 @@ self.addEventListener("fetch", (event) => {
 
   // Pages are cached by path alone, so the URL query (tool state) does not split the cache.
   const key = request.mode === "navigate" ? url.pathname : request;
+  const home = url.pathname === "/fr" || url.pathname.startsWith("/fr/") ? "/fr" : "/";
   event.respondWith(
     fetch(request)
       .then((response) => store(key, response))
-      .catch(async () => (await caches.match(key, { ignoreSearch: true })) ?? (request.mode === "navigate" ? caches.match("/") : Response.error())),
+      .catch(async () => (await caches.match(key, { ignoreSearch: true })) ?? (request.mode === "navigate" ? caches.match(home) : Response.error())),
   );
 });

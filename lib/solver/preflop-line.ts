@@ -1,5 +1,7 @@
 import { getChart } from "@/lib/charts/charts";
 import { type ActionId, type ChartKey, heroPositions, openerGroupOf } from "@/lib/charts/model";
+import type { Locale } from "@/lib/i18n/locale";
+import { messages } from "@/lib/i18n/messages";
 import type { BlindLevel } from "@/lib/poker/blinds";
 import type { Range } from "@/lib/poker/range";
 import { OPEN_SIZE_BB, POSITIONS, type Position, postflopOrder, preflopOrder, type StackTier, stackTierFor } from "@/lib/poker/table";
@@ -48,10 +50,11 @@ function chartRange(key: ChartKey, action: ActionId): Range {
 }
 
 /** Fills both Ranges from the Charts and works out the pot and effective stack after the line, with the real blinds of `level`. */
-export function lineSpot(line: PreflopLine, depth: number, level: BlindLevel = HALF_SB): LineSpot {
+export function lineSpot(line: PreflopLine, depth: number, level: BlindLevel = HALF_SB, locale: Locale = "en"): LineSpot {
+  const t = messages(locale).solver;
   const tier = stackTierFor(depth);
-  if (tier === "push-fold") return { error: `Below ${MIN_DEPTH}bb the Push/fold charts apply: pick a deeper stack`, ok: false };
-  if (!isValidLine(line)) return { error: "The caller must act after the opener", ok: false };
+  if (tier === "push-fold") return { error: t.belowMin(MIN_DEPTH), ok: false };
+  if (!isValidLine(line)) return { error: t.callerAfter, ok: false };
   const players = linePlayers(line);
 
   if (line.kind === "limp") {
@@ -63,7 +66,7 @@ export function lineSpot(line: PreflopLine, depth: number, level: BlindLevel = H
   const { opener, caller } = line;
   const size = OPEN_SIZE_BB[tier];
   const group = openerGroupOf(opener);
-  if (!group) return { error: "The opener must be a Position before the BB", ok: false };
+  if (!group) return { error: t.openerBeforeBb, ok: false };
   const openRange = chartRange({ position: opener, situation: "open", tier }, "raise");
   const callRange = chartRange({ opener: group, position: caller, situation: "vs-open", tier }, "call");
   const dead = (opener === "SB" || caller === "SB" ? 0 : level.sb / level.bb) + (caller === "BB" ? 0 : 1);
@@ -72,9 +75,9 @@ export function lineSpot(line: PreflopLine, depth: number, level: BlindLevel = H
 }
 
 /** "CO opens 2.5bb, BB calls, 40bb". */
-export function describeLine(line: PreflopLine, depth: number): string {
-  if (line.kind === "limp") return `SB limps, BB checks, ${depth}bb`;
+export function describeLine(line: PreflopLine, depth: number, locale: Locale): string {
+  const t = messages(locale).solver;
+  if (line.kind === "limp") return t.limpLine(depth);
   const tier = stackTierFor(depth);
-  const size = tier === "push-fold" ? "" : ` ${OPEN_SIZE_BB[tier]}bb`;
-  return `${line.opener} opens${size}, ${line.caller} calls, ${depth}bb`;
+  return t.openLine(line.opener, tier === "push-fold" ? null : OPEN_SIZE_BB[tier], line.caller, depth);
 }

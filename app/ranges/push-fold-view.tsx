@@ -1,9 +1,9 @@
 "use client";
 
+import { useI18n } from "@/components/i18n-provider";
 import { RangeGrid } from "@/components/range-grid";
 import { pushFoldFrequencies } from "@/lib/charts/charts";
 import { depthSpans, describePushFold, largestDepths, PUSH_FOLD_DEPTHS, type PushFoldDepth, type PushFoldSeries, pushersFacing } from "@/lib/charts/push-fold";
-import { formatPercent } from "@/lib/format";
 import { HAND_CLASS_NAMES, type HandClassId, handClassCombos } from "@/lib/poker/combo";
 import { codecs, HAND_CLASS_PARAM, useUrlState } from "@/lib/url-state";
 
@@ -24,27 +24,26 @@ function heat(colour: "push" | "call", depth: PushFoldDepth): string {
 
 const depthLabel = (depth: PushFoldDepth) => (depth === DEEPEST ? `${depth}+` : String(depth));
 
-const list = (items: readonly string[]) => (items.length > 1 ? `${items.slice(0, -1).join(", ")} and ${items.at(-1)}` : items[0]);
-
 /** One grid for a Push or Vs push series: each Hand class shows the largest depth at which it is still played. */
 export function PushFoldView({ series }: { series: PushFoldSeries }) {
+  const { locale, t } = useI18n();
+  const text = t.pushFold;
   const [selected, setSelected] = useUrlState(HAND_CLASS_PARAM, codecs.handClass(null));
   const byDepth = pushFoldFrequencies(series);
   const largest = largestDepths(byDepth);
   const colour = series.situation === "push" ? "push" : "call";
-  const verb = series.situation === "push" ? "pushes" : "calls";
+  const push = series.situation === "push";
+  const title = describePushFold(series, locale);
 
   const describe = (cls: HandClassId) => {
     const depth = largest[cls];
-    return depth === null ? `${HAND_CLASS_NAMES[cls]}: never ${verb}` : `${HAND_CLASS_NAMES[cls]}: ${verb} up to ${depthLabel(depth)}bb`;
+    return depth === null ? text.never(HAND_CLASS_NAMES[cls], push) : text.upTo(HAND_CLASS_NAMES[cls], depthLabel(depth), push);
   };
   const summary = (cls: HandClassId) => {
-    const spans = depthSpans(byDepth, cls);
-    const mixed = PUSH_FOLD_DEPTHS.filter((depth) => byDepth[depth - 1][cls] > 0 && byDepth[depth - 1][cls] < 1).map(
-      (depth) => `${depth}bb ${formatPercent(byDepth[depth - 1][cls])}`,
-    );
-    const played = spans ? `${verb} at ${spans}` : `never ${verb} from 1 to ${DEEPEST}bb`;
-    return `${HAND_CLASS_NAMES[cls]}, ${handClassCombos(cls).length} combos: ${played}.${mixed.length > 0 ? ` Mixed at ${list(mixed)}.` : ""}`;
+    const spans = depthSpans(byDepth, cls, locale);
+    const mixed = PUSH_FOLD_DEPTHS.filter((depth) => byDepth[depth - 1][cls] > 0 && byDepth[depth - 1][cls] < 1).map((depth) => ({ depth, share: byDepth[depth - 1][cls] }));
+    const played = spans ? text.playedAt(spans, push) : text.neverPlayed(DEEPEST, push);
+    return text.summary(HAND_CLASS_NAMES[cls], handClassCombos(cls).length, played, mixed.length > 0 ? text.mixed(mixed) : "");
   };
   const pushers = series.situation === "vs-push" ? pushersFacing(series.position, series.pusher) : [];
 
@@ -52,15 +51,15 @@ export function PushFoldView({ series }: { series: PushFoldSeries }) {
     <section aria-labelledby="chart-title" className="flex flex-col gap-4">
       <div>
         <h2 id="chart-title" className="m-0 font-bold font-display text-3xl leading-none">
-          {describePushFold(series)}
+          {title}
         </h2>
         <p className="mt-1 mb-0 text-dust">
-          {series.situation === "push" ? "Folded to you. " : pushers.length > 1 ? `Averaged over ${list(pushers)} pushing. ` : `Facing a ${pushers[0]} push. `}
-          Each hand shows the largest stack, in bb, at which it still {verb === "pushes" ? "pushes" : "calls"}; {DEEPEST}+ means at every depth.
+          {push ? text.foldedToYou : pushers.length > 1 ? text.averaged(pushers) : text.facing(pushers[0])}
+          {text.explain(DEEPEST, push)}
         </p>
       </div>
       <RangeGrid
-        label={`${describePushFold(series)}: largest stack per hand`}
+        label={text.gridLabel(title)}
         segments={(cls) => {
           const depth = largest[cls];
           return depth === null ? [] : [{ color: heat(colour, depth), share: 1 }];
@@ -75,11 +74,14 @@ export function PushFoldView({ series }: { series: PushFoldSeries }) {
         onSelect={(cls) => setSelected(cls === selected ? null : cls)}
       />
       <p aria-live="polite" className="m-0 min-h-[3em] text-dust">
-        {selected === null ? "Tap a hand for the depths it plays at." : <span className="text-chalk">{summary(selected)}</span>}
+        {selected === null ? text.tapHand : <span className="text-chalk">{summary(selected)}</span>}
       </p>
       <p className="m-0 rounded-2xl border-2 border-booth border-dashed px-4 py-3 text-dust">
-        Chip-EV Nash equilibrium for 8-max with no antes, assuming at most one caller. Generated into{" "}
-        <code className="text-chalk text-sm">content/charts/{series.situation}.ts</code> by <code className="text-chalk text-sm">pnpm generate:push-fold</code>.
+        {text.model.before}
+        <code className="text-chalk text-sm">content/charts/{series.situation}.ts</code>
+        {text.model.middle}
+        <code className="text-chalk text-sm">pnpm generate:push-fold</code>
+        {text.model.after}
       </p>
     </section>
   );

@@ -4,9 +4,10 @@ import { useSearchParams } from "next/navigation";
 import { primaryButton } from "@/components/buttons";
 import { ActionLegend, ChartGrid, classSummary } from "@/components/chart-grid";
 import { ChartPicker } from "@/components/chart-picker";
+import { useI18n } from "@/components/i18n-provider";
 import { type Chart, chartFileLocation } from "@/lib/charts/chart-files";
 import { getChart } from "@/lib/charts/charts";
-import { type ActionId, type ChartSelection, chartKeyFor } from "@/lib/charts/model";
+import { type ActionId, type ChartSelection, chartKeyFor, describeChart } from "@/lib/charts/model";
 import { type BrowseSelection, browseParams, browseSeries, isPushFoldSituation, parseBrowseParams } from "@/lib/charts/push-fold";
 import { draftStrings } from "@/lib/charts/scratchpad";
 import { handClassWeights } from "@/lib/poker/range";
@@ -20,10 +21,13 @@ const EDIT_PARAM = "edit";
 const DRAFT_PARAMS = ["raise", "call", "limp"] as const satisfies readonly ActionId[];
 
 function BaselineNote({ chart }: { chart: Chart }) {
+  const { baseline } = useI18n().t.ranges;
   if (!chart.baseline) return null;
   return (
     <p className="m-0 rounded-2xl border-2 border-booth border-dashed px-4 py-3 text-dust">
-      Baseline starting point, not yet tuned to your games. Adjust it in <code className="text-chalk text-sm">{chartFileLocation(chart.key)}</code>.
+      {baseline.before}
+      <code className="text-chalk text-sm">{chartFileLocation(chart.key)}</code>
+      {baseline.after}
     </p>
   );
 }
@@ -45,6 +49,7 @@ export function RangesTool() {
 }
 
 function ChartView({ selection, select }: { selection: ChartSelection; select: (next: BrowseSelection) => void }) {
+  const { locale, t } = useI18n();
   const params = useSearchParams();
   const key = chartKeyFor(selection);
   const chart = getChart(key);
@@ -75,19 +80,19 @@ function ChartView({ selection, select }: { selection: ChartSelection; select: (
       <section aria-labelledby="chart-title" className="flex flex-col gap-4">
         <div>
           <h2 id="chart-title" className="m-0 font-bold font-display text-3xl leading-none">
-            {chart.title}
+            {describeChart(key, locale)}
           </h2>
-          {key.situation === "open" && <p className="mt-1 mb-0 text-dust">Raises to {OPEN_SIZE_BB[key.tier]}bb.</p>}
+          {key.situation === "open" && <p className="mt-1 mb-0 text-dust">{t.ranges.raisesTo(OPEN_SIZE_BB[key.tier])}</p>}
         </div>
         <ActionLegend actions={chart.actions} />
         <ChartGrid chart={chart} selected={selected} onSelect={(cls) => setSelected(cls === selected ? null : cls)} />
         <p aria-live="polite" className="m-0 min-h-[3em] text-dust">
-          {selected === null ? "Tap a hand for its frequencies." : <span className="text-chalk">{classSummary(chart, selected)}</span>}
+          {selected === null ? t.ranges.tapHand : <span className="text-chalk">{classSummary(chart, selected, locale)}</span>}
         </p>
         <BaselineNote chart={chart} />
         <div>
           <button type="button" onClick={startEditing} className={primaryButton}>
-            Edit in scratchpad
+            {t.ranges.edit}
           </button>
         </div>
       </section>

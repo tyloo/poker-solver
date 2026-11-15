@@ -13,8 +13,12 @@ type Props = {
   className?: string;
 };
 
+/** Titles with a longer word ("coucher", "Iso-raise") use a smaller size, so they fit the card on a 360px screen. */
+const LONG_WORD = 6;
+
 /** The answer as a chalk card that flips face up when it arrives. The flip is the app's only automatic motion. */
 export function VerdictCard({ verdict, prompt, flipKey, label, className = "" }: Props) {
+  const long = verdict?.title.split(/\s+/).some((word) => word.length > LONG_WORD);
   return (
     <div role="status" className={`${styles.card} ${verdict ? "" : styles.faceDown} ${className}`}>
       <div key={verdict ? flipKey : "back"} className={styles.flipper}>
@@ -24,7 +28,7 @@ export function VerdictCard({ verdict, prompt, flipKey, label, className = "" }:
               <span aria-hidden="true" className={styles.band} style={{ background: `var(--color-${verdict.colour})` }} />
               <div className={styles.body}>
                 <span className="sr-only">{`${label}: `}</span>
-                <span className={styles.title}>{verdict.title}</span>
+                <span className={`${styles.title} ${long ? styles.long : ""}`}>{verdict.title}</span>
                 {verdict.detail && <span className={styles.detail}>{verdict.detail}</span>}
                 {verdict.aside && <span className={styles.aside}>{verdict.aside}</span>}
               </div>

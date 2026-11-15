@@ -5,6 +5,7 @@ import { useState } from "react";
 import { primaryButton, textButton } from "@/components/buttons";
 import { CardKeypadSheet } from "@/components/card-keypad-sheet";
 import { Segmented } from "@/components/chart-picker";
+import { useI18n } from "@/components/i18n-provider";
 import { NumberField } from "@/components/number-field";
 import { PlayingCard } from "@/components/playing-card";
 import { VerdictCard } from "@/components/verdict-card";
@@ -23,10 +24,9 @@ import {
 import type { PreflopAdvice, PreflopQuestion } from "@/lib/advisor/preflop";
 import { type AdvisorSetup, toUnit } from "@/lib/advisor/setup";
 import type { ActionColour } from "@/lib/charts/model";
-import { PLAYER_TYPE_LABELS, PLAYER_TYPES } from "@/lib/charts/player-types";
+import { PLAYER_TYPES } from "@/lib/charts/player-types";
 import type { EquityInput, EquityResult } from "@/lib/equity/engine";
 import { type EquityRun, useEquity } from "@/lib/equity/use-equity";
-import { formatPercent } from "@/lib/format";
 import { type CardId, cardFromId } from "@/lib/poker/card";
 import type { Range } from "@/lib/poker/range";
 import { solverHref } from "@/lib/solver/spot-url";
@@ -35,25 +35,24 @@ import type { Update } from "./advisor-tool";
 const VERDICT_COLOURS: Record<PostflopVerdictKind, ActionColour> = { bet: "raise", call: "call", check: "call", fold: "fold", push: "push" };
 const MAX_OPPONENTS = 7;
 
-const percent = (share: number) => formatPercent(share, 1);
-const count = (value: number) => value.toLocaleString("en-US");
-
 type Props = { setup: AdvisorSetup; question: PreflopQuestion | null; advice: PreflopAdvice | null; update: Update };
 
 export function AdvisorPostflop({ setup, question, advice, update }: Props) {
+  const { locale, t } = useI18n();
   const [picking, setPicking] = useState(false);
   const { board } = setup;
-  const line = question && advice ? postflopLine(question, advice) : null;
+  const line = question && advice ? postflopLine(question, advice, locale) : null;
 
   return (
     <section aria-labelledby="postflop-heading" className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <h2 id="postflop-heading" className="m-0 font-bold font-display text-3xl leading-none">
-          Postflop
+          {t.postflop.heading}
         </h2>
         {board.length > 0 && (
           <button type="button" onClick={() => update({ board: [] })} className={`-mr-4 ${textButton}`}>
-            Clear<span className="sr-only"> board</span>
+            {t.common.clear}
+            <span className="sr-only">{t.common.boardSr}</span>
           </button>
         )}
       </div>
@@ -62,25 +61,25 @@ export function AdvisorPostflop({ setup, question, advice, update }: Props) {
         onClick={() => setPicking(true)}
         className="flex flex-wrap gap-2 self-start rounded-lg focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-3"
       >
-        <span className="sr-only">{board.length > 0 ? "Edit the board" : "Add board cards"}</span>
+        <span className="sr-only">{board.length > 0 ? t.common.editBoard : t.common.addBoard}</span>
         {Array.from({ length: 5 }, (_, i) => (
           <PlayingCard key={i} card={board[i] === undefined ? null : cardFromId(board[i])} size="md" />
         ))}
       </button>
 
       {!line ? (
-        <p className="m-0 text-dust">Pick your hand and position first.</p>
+        <p className="m-0 text-dust">{t.postflop.handFirst}</p>
       ) : !line.ok ? (
         <p className="m-0 text-dust">{line.reason}</p>
       ) : board.length < 3 ? (
-        <p className="m-0 text-dust">Add the flop for your postflop numbers.</p>
+        <p className="m-0 text-dust">{t.postflop.addFlop}</p>
       ) : (
         <PostflopInputs setup={setup} line={line.line} update={update} />
       )}
 
       {picking && (
         <CardKeypadSheet
-          title="Board"
+          title={t.common.board}
           value={board}
           max={5}
           unavailable={setup.hand}
@@ -96,22 +95,23 @@ export function AdvisorPostflop({ setup, question, advice, update }: Props) {
 }
 
 function PostflopInputs({ setup, line, update }: { setup: AdvisorSetup; line: PostflopLine; update: Update }) {
-  const unit = setup.stack.unit === "chips" ? "chips" : "bb";
-  const decimal = unit === "bb";
+  const { locale, t } = useI18n();
+  const decimal = setup.stack.unit === "bb";
+  const unit = decimal ? "bb" : t.advisor.chips;
   const positions = opponentPositions(line);
   const opponents = (setup.opponents ?? defaultOpponents(line).map((position): Opponent => ({ position, type: "standard" }))).filter((opponent) =>
     positions.includes(opponent.position),
   );
   const setOpponents = (next: Opponent[]) => update({ opponents: [...next].sort((a, b) => positions.indexOf(a.position) - positions.indexOf(b.position)) });
-  const ranges = opponents.map((opponent) => ({ opponent, result: opponentRange(line, opponent) }));
+  const ranges = opponents.map((opponent) => ({ opponent, result: opponentRange(line, opponent, locale) }));
 
   return (
     <>
       <div className="flex gap-3">
-        <NumberField className="flex-1" label="Pot before the bet" unit={unit} decimal={decimal} value={setup.pot} onChange={(pot) => update({ pot }, "replace")} />
+        <NumberField className="flex-1" label={t.postflop.pot} unit={unit} decimal={decimal} value={setup.pot} onChange={(pot) => update({ pot }, "replace")} />
         <NumberField
           className="flex-1"
-          label="Bet to call"
+          label={t.postflop.bet}
           unit={unit}
           decimal={decimal}
           allowZero
@@ -122,7 +122,7 @@ function PostflopInputs({ setup, line, update }: { setup: AdvisorSetup; line: Po
       </div>
 
       <fieldset className="m-0 min-w-0 border-0 p-0">
-        <legend className="mb-1.5 p-0 text-dust">Still in the hand</legend>
+        <legend className="mb-1.5 p-0 text-dust">{t.postflop.stillIn}</legend>
         <div className="flex flex-wrap gap-1">
           {positions.map((position) => {
             const index = opponents.findIndex((opponent) => opponent.position === position);
@@ -151,8 +151,8 @@ function PostflopInputs({ setup, line, update }: { setup: AdvisorSetup; line: Po
                 {result.ok && <span className="text-dust">{`, ${result.line}`}</span>}
               </p>
               <Segmented
-                legend={`${opponent.position}'s player type`}
-                options={PLAYER_TYPES.map((type) => ({ label: PLAYER_TYPE_LABELS[type], value: type }))}
+                legend={t.postflop.playerType(opponent.position)}
+                options={PLAYER_TYPES.map((type) => ({ label: t.charts.playerTypes[type], value: type }))}
                 value={opponent.type}
                 onChange={(type) => setOpponents(opponents.map((other, i) => (i === index ? { ...other, type } : other)))}
               />
@@ -164,7 +164,7 @@ function PostflopInputs({ setup, line, update }: { setup: AdvisorSetup; line: Po
       )}
 
       {opponents.length === 0 ? (
-        <p className="m-0 text-dust">Tap the players still in the hand.</p>
+        <p className="m-0 text-dust">{t.postflop.tapPlayers}</p>
       ) : ranges.every((entry) => entry.result.ok) ? (
         <PostflopResults
           setup={setup}
@@ -195,10 +195,11 @@ function Figure({ label, value }: { label: string; value: string }) {
 }
 
 function PostflopResults({ setup, line, opponents }: { setup: AdvisorSetup; line: PostflopLine; opponents: RangedOpponent[] }) {
+  const { locale, t, href } = useI18n();
   const hand = setup.hand as CardId[];
   const input: EquityInput = { board: setup.board, dead: [], players: [{ cards: hand, kind: "hand" }, ...opponents.map(({ range }) => ({ kind: "range" as const, range }))] };
   const key = JSON.stringify([hand, setup.board, opponents.map(({ position, type }) => [position, type]), line.key, line.heroAction]);
-  const run = useEquity(input, key);
+  const run = useEquity(input, key, locale);
   const result = visibleResult(run);
   const equity = result?.players[0]?.equity ?? null;
 
@@ -207,49 +208,52 @@ function PostflopResults({ setup, line, opponents }: { setup: AdvisorSetup; line
   const bet = setup.bet ?? 0;
   const amounts = pot !== null && stack !== null ? { bet, pot, stack } : null;
   const numbers = amounts ? postflopNumbers(amounts) : null;
-  const verdict = amounts && equity !== null && run.status === "done" ? postflopVerdict({ ...amounts, equity, opponents: opponents.length }) : null;
+  const verdict = amounts && equity !== null && run.status === "done" ? postflopVerdict({ ...amounts, equity, opponents: opponents.length }, locale) : null;
 
   const status =
     run.status === "error"
       ? run.message
       : !result
-        ? "Calculating…"
-        : `${result.method === "exact" ? `Exact, ${count(result.samples)} runouts` : `Monte Carlo, ${count(result.samples)} samples`} vs ${opponents.map(({ position, type }) => `${position} ${PLAYER_TYPE_LABELS[type]}`).join(", ")}`;
+        ? t.common.calculating
+        : t.postflop.versus(
+            result.method === "exact" ? t.postflop.exact(result.samples) : t.postflop.monteCarlo(result.samples),
+            opponents.map(({ position, type }) => `${position} ${t.charts.playerTypes[type]}`),
+          );
 
   const opponent = opponents.length === 1 ? opponents[0] : null;
   const level = setup.stack.unit === "chips" ? setup.stack.level : undefined;
   const solver =
     opponent && amounts
-      ? solverHref(solverLinkFor({ board: setup.board, hand, level, line, opponent, pot: toUnit(amounts.pot, setup.stack), stack: toUnit(amounts.stack, setup.stack) }))
+      ? href(solverHref(solverLinkFor({ board: setup.board, hand, level, line, opponent, pot: toUnit(amounts.pot, setup.stack), stack: toUnit(amounts.stack, setup.stack) })))
       : null;
 
   return (
     <div className="flex flex-col gap-4">
       <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3">
-        <Figure label="Your equity" value={equity === null ? "–" : percent(equity)} />
-        <Figure label="SPR" value={numbers ? numbers.spr.toFixed(1) : "–"} />
-        <Figure label="Pot odds" value={numbers && numbers.call > 0 ? `${numbers.potOdds.toFixed(1)} : 1` : "–"} />
-        <Figure label="Equity needed" value={numbers && numbers.call > 0 ? percent(numbers.requiredEquity) : "–"} />
+        <Figure label={t.postflop.yourEquity} value={equity === null ? "–" : t.equity.percent(equity)} />
+        <Figure label={t.postflop.spr} value={numbers ? t.postflop.ratio(numbers.spr) : "–"} />
+        <Figure label={t.postflop.potOdds} value={numbers && numbers.call > 0 ? t.postflop.odds(numbers.potOdds) : "–"} />
+        <Figure label={t.postflop.equityNeeded} value={numbers && numbers.call > 0 ? t.equity.percent(numbers.requiredEquity) : "–"} />
       </dl>
       <p className={`m-0 ${run.status === "error" ? "text-raise" : "text-dust"}`} aria-live="polite">
         {status}
       </p>
 
       <VerdictCard
-        label="Heuristic"
-        verdict={verdict && { aside: "Heuristic: equity vs estimated Ranges, not a solve", colour: VERDICT_COLOURS[verdict.kind], detail: verdict.reason, title: verdict.title }}
-        prompt={amounts ? "Calculating…" : "Enter the pot"}
+        label={t.postflop.heuristic}
+        verdict={verdict && { aside: t.postflop.heuristicAside, colour: VERDICT_COLOURS[verdict.kind], detail: verdict.reason, title: verdict.title }}
+        prompt={amounts ? t.common.calculating : t.postflop.enterPot}
         flipKey={verdict?.kind ?? ""}
       />
 
       {solver ? (
         <div>
           <Link href={solver} className={`inline-flex items-center ${primaryButton}`}>
-            Open in Solver
+            {t.postflop.openInSolver}
           </Link>
         </div>
       ) : (
-        opponent === null && <p className="m-0 text-dust">The Solver takes heads-up Spots: keep one opponent to open this in the Solver.</p>
+        opponent === null && <p className="m-0 text-dust">{t.postflop.headsUpOnly}</p>
       )}
     </div>
   );

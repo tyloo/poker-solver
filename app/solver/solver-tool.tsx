@@ -4,9 +4,13 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { outlineButton, primaryButton, textButton } from "@/components/buttons";
 import { CardKeypadSheet } from "@/components/card-keypad-sheet";
+import { useI18n } from "@/components/i18n-provider";
 import { LoadRangeButton } from "@/components/load-range-sheet";
 import { PlayingCard } from "@/components/playing-card";
 import { RangeSheet, rangeSummary } from "@/components/range-sheet";
+import { formatBb } from "@/lib/format";
+import type { Locale } from "@/lib/i18n/locale";
+import type { Messages } from "@/lib/i18n/messages";
 import { type CardId, cardFromId } from "@/lib/poker/card";
 import { comboId, HAND_CLASS_NAMES, handClassOfCombo } from "@/lib/poker/combo";
 import { parseRange } from "@/lib/poker/range";
@@ -29,23 +33,18 @@ const chipButton =
   "h-11 min-w-0 flex-1 rounded-xl bg-booth px-0.5 font-bold font-display text-lg leading-none focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-2 aria-pressed:bg-chalk aria-pressed:text-night";
 const sectionHeading = "m-0 font-bold font-display text-3xl leading-none";
 
-const bb = (value: number) => (Number.isNaN(value) ? "?" : `${Number(value.toFixed(2))}bb`);
-const share = (value: number | null) => (value === null ? "?" : `${(value * 100).toFixed(2)}%`);
-const seconds = (ms: number) => `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)} s`;
+const bb = (value: number, locale: Locale) => (Number.isNaN(value) ? "?" : formatBb(value, locale));
 
-function runText(run: SolveRun): string {
+function runText(run: SolveRun, t: Messages["solver"]): string {
   if (run.status === "idle") return "";
   if (run.status === "error") return run.message;
   const { progress } = run;
-  if (!progress) return run.estimate ? "Building the tree…" : "Starting the Solver…";
-  const done = `${progress.iteration} iterations in ${seconds(progress.elapsedMs)}`;
-  if (run.status === "running") {
-    if (progress.exploitabilityShare === null) return `Iteration ${progress.iteration}, measuring exploitability…`;
-    return `Iteration ${progress.iteration}: exploitability ${share(progress.exploitabilityShare)} of the pot (target 0.5%), ${seconds(progress.elapsedMs)}.`;
-  }
-  if (run.reason === "converged") return `Solved: exploitability ${share(progress.exploitabilityShare)} of the pot after ${done}.`;
-  if (run.reason === "stopped") return `Stopped at ${share(progress.exploitabilityShare)} of the pot after ${done}. The strategy so far is below.`;
-  return `Reached ${progress.iteration} iterations at ${share(progress.exploitabilityShare)} of the pot, above the 0.5% target.`;
+  if (!progress) return run.estimate ? t.building : t.starting;
+  const { iteration, elapsedMs, exploitabilityShare: share } = progress;
+  if (run.status === "running") return share === null ? t.measuring(iteration) : t.running(iteration, share, elapsedMs);
+  if (run.reason === "converged") return t.converged(share, iteration, elapsedMs);
+  if (run.reason === "stopped") return t.stopped(share, iteration, elapsedMs);
+  return t.maxIterations(iteration, share);
 }
 
 function CardRow({ cards, slots, label, onEdit }: { cards: readonly CardId[]; slots: number; label: string; onEdit: () => void }) {
@@ -70,9 +69,11 @@ function ProgressMeter({ progress }: { progress: SolveStatus | null }) {
 }
 
 export function SolverTool() {
+  const { locale, t: messages } = useI18n();
+  const t = messages.solver;
   const params = useSearchParams();
   const setup = parseSpotParams(params);
-  const resolved = resolveSetup(setup);
+  const resolved = resolveSetup(setup, locale);
   const solver = useSolver(resolved.spot, resolved.key);
   const { run, estimate } = solver;
   const [sheet, setSheet] = useState<OpenSheet>(null);
@@ -111,34 +112,35 @@ export function SolverTool() {
     <>
       <section aria-labelledby="line-heading" className="rounded-2xl bg-booth p-4">
         <h2 id="line-heading" className="m-0 font-bold font-display text-2xl leading-none">
-          Preflop line
+          {t.lineHeading}
         </h2>
         <button
           type="button"
           onClick={() => setSheet({ kind: "line" })}
           className="mt-2 block w-full rounded-lg text-left font-bold underline decoration-2 underline-offset-4 focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-3"
         >
-          <span className="sr-only">Change the Preflop line: </span>
-          {setup.line ? `${describeLine(setup.line, setup.depth)}, ${describeLevel(setup.level)}` : "None: amounts and ranges set by hand"}
+          <span className="sr-only">{t.changeLineSr}</span>
+          {setup.line ? t.lineWithLevel(describeLine(setup.line, setup.depth, locale), describeLevel(setup.level, locale)) : t.noLine}
         </button>
         <div className="mt-2 flex items-center justify-between gap-3">
           <p className="m-0 text-dust">
-            {`Pot ${bb(resolved.pot)}, ${bb(resolved.stack)} behind`}
-            {resolved.pot > 0 && resolved.stack >= 0 && `, SPR ${(resolved.stack / resolved.pot).toFixed(1)}`}
+            {t.amounts(bb(resolved.pot, locale), bb(resolved.stack, locale))}
+            {resolved.pot > 0 && resolved.stack >= 0 && t.spr(resolved.stack / resolved.pot)}
           </p>
           <button type="button" onClick={() => setSheet({ kind: "amounts" })} className={`-mr-4 shrink-0 ${textButton}`}>
-            Edit<span className="sr-only"> the pot and stack</span>
+            {messages.common.edit}
+            <span className="sr-only">{t.amountsSr}</span>
           </button>
         </div>
       </section>
 
       <section aria-labelledby="ranges-heading" className="mt-8">
         <h2 id="ranges-heading" className={`${sectionHeading} mb-3`}>
-          Ranges
+          {t.ranges}
         </h2>
         <ul className="m-0 flex list-none flex-col gap-3 p-0">
           {([0, 1] as const).map((player) => {
-            const parsed = parseRange(resolved.rangeTexts[player]);
+            const parsed = parseRange(resolved.rangeTexts[player], locale);
             const edited = setup.ranges[player] !== null && setup.line !== null;
             return (
               <li key={player}>
@@ -148,11 +150,11 @@ export function SolverTool() {
                   className="block w-full rounded-2xl bg-booth p-4 text-left focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-3"
                 >
                   <span className="flex items-baseline justify-between gap-3">
-                    <span className="font-bold font-display text-2xl leading-none">{`${players[player]} (${player === 0 ? "OOP" : "IP"})`}</span>
-                    <span className="text-dust text-sm">{setup.ranges[player] === null ? "From the Charts" : edited ? "Edited" : ""}</span>
+                    <span className="font-bold font-display text-2xl leading-none">{t.side(players[player], player)}</span>
+                    <span className="text-dust text-sm">{setup.ranges[player] === null ? t.fromCharts : edited ? t.edited : ""}</span>
                   </span>
-                  <span className="mt-2 line-clamp-2 block break-words">{resolved.rangeTexts[player] || "Paint a range"}</span>
-                  <span className="block text-dust">{parsed.ok ? rangeSummary(parsed.range) : parsed.error}</span>
+                  <span className="mt-2 line-clamp-2 block break-words">{resolved.rangeTexts[player] || messages.common.paintRange}</span>
+                  <span className="block text-dust">{parsed.ok ? rangeSummary(parsed.range, locale) : parsed.error}</span>
                 </button>
               </li>
             );
@@ -163,18 +165,19 @@ export function SolverTool() {
       <section aria-labelledby="board-heading" className="mt-8">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 id="board-heading" className={sectionHeading}>
-            Board
+            {messages.common.board}
           </h2>
           {setup.board.length > 0 && (
             <button type="button" onClick={() => update({ board: [] })} className={`-mr-4 ${textButton}`}>
-              Clear<span className="sr-only"> board</span>
+              {messages.common.clear}
+              <span className="sr-only">{messages.common.boardSr}</span>
             </button>
           )}
         </div>
-        <CardRow cards={setup.board} slots={4} label={setup.board.length > 0 ? "Edit the board" : "Add board cards"} onEdit={() => setSheet({ kind: "board" })} />
+        <CardRow cards={setup.board} slots={4} label={setup.board.length > 0 ? messages.common.editBoard : messages.common.addBoard} onEdit={() => setSheet({ kind: "board" })} />
         {street === "flop" && (
           <p role="note" className="mt-4 mb-0 rounded-2xl border-2 border-push px-4 py-3">
-            Flop spots are slow: expect several minutes on a phone, and wide ranges may not fit in memory. They use one bet size plus all-in, and every raise is all-in.
+            {t.flopWarning}
           </p>
         )}
       </section>
@@ -182,43 +185,44 @@ export function SolverTool() {
       <section aria-labelledby="hand-heading" className="mt-8">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 id="hand-heading" className={sectionHeading}>
-            Your hand
+            {messages.common.yourHand}
           </h2>
           {hand && (
             <button type="button" onClick={() => update({ hand: [] })} className={`-mr-4 ${textButton}`}>
-              Clear<span className="sr-only"> your hand</span>
+              {messages.common.clear}
+              <span className="sr-only">{t.handSr}</span>
             </button>
           )}
         </div>
         <div className="flex items-center gap-4">
-          <CardRow cards={setup.hand} slots={2} label={hand ? "Edit your hand" : "Add your hand"} onEdit={() => setSheet({ kind: "hand" })} />
-          <p className="m-0 text-dust">{heroClass === null ? "Optional: the results open on its Hand class." : `Results open on ${HAND_CLASS_NAMES[heroClass]}.`}</p>
+          <CardRow cards={setup.hand} slots={2} label={hand ? t.editHand : t.addHand} onEdit={() => setSheet({ kind: "hand" })} />
+          <p className="m-0 text-dust">{heroClass === null ? t.handOptional : t.opensOn(HAND_CLASS_NAMES[heroClass])}</p>
         </div>
       </section>
 
       <section aria-labelledby="sizes-heading" className="mt-8">
         <h2 id="sizes-heading" className={`${sectionHeading} mb-3`}>
-          Bet sizes
+          {t.betSizes}
         </h2>
         <fieldset className="m-0 min-w-0 border-0 p-0">
-          <legend className="mb-1.5 p-0 text-dust">{street === "flop" ? "One bet size, % of the pot, plus all-in" : "Bets, % of the pot, plus all-in"}</legend>
+          <legend className="mb-1.5 p-0 text-dust">{street === "flop" ? t.flopBets : t.bets}</legend>
           <div className="flex gap-1">
             {BET_SIZE_OPTIONS.map((size) => (
               <button key={size} type="button" aria-pressed={resolved.bets.includes(size)} onClick={() => toggleBet(size)} className={chipButton}>
-                {size}%
+                {t.betSize(size)}
               </button>
             ))}
           </div>
         </fieldset>
         {street === "flop" ? (
-          <p className="mt-3 mb-0 text-dust">Raises are all-in only in flop spots.</p>
+          <p className="mt-3 mb-0 text-dust">{t.flopRaises}</p>
         ) : (
           <fieldset className="m-0 mt-4 min-w-0 border-0 p-0">
-            <legend className="mb-1.5 p-0 text-dust">Raise to, times the bet, plus all-in</legend>
+            <legend className="mb-1.5 p-0 text-dust">{t.raises}</legend>
             <div className="flex gap-1">
               {RAISE_OPTIONS.map((size) => (
                 <button key={size} type="button" aria-pressed={setup.raise === size} onClick={() => update({ raise: size }, "replace")} className={chipButton}>
-                  {size}×
+                  {t.times(size)}
                 </button>
               ))}
             </div>
@@ -228,32 +232,32 @@ export function SolverTool() {
 
       <section aria-labelledby="solve-heading" className="mt-8">
         <h2 id="solve-heading" className="sr-only">
-          Solve
+          {t.solveSr}
         </h2>
         <p className={`m-0 ${resolved.reason || (estimate && (!estimate.ok || !estimate.estimate.fits)) ? "text-raise" : "text-dust"}`}>
           {resolved.reason ??
             (estimate === null
-              ? "Sizing the game tree…"
+              ? t.sizing
               : !estimate.ok
                 ? estimate.error
                 : estimate.estimate.fits
-                  ? `${estimate.estimate.actionNodes.toLocaleString("en-US")} decisions, about ${formatMegabytes(estimate.estimate.memoryBytes)} of memory, ${estimate.estimate.combos[0]} vs ${estimate.estimate.combos[1]} combos.`
-                  : resolved.spot && overBudgetMessage(estimate.estimate, resolved.spot))}
+                  ? t.estimate(estimate.estimate.actionNodes, formatMegabytes(estimate.estimate.memoryBytes, locale), estimate.estimate.combos[0], estimate.estimate.combos[1])
+                  : resolved.spot && overBudgetMessage(estimate.estimate, resolved.spot, locale))}
         </p>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           {running ? (
             <button type="button" onClick={solver.stop} className={outlineButton}>
-              Stop
+              {messages.common.stop}
             </button>
           ) : (
             <button type="button" disabled={!resolved.spot || !fits} onClick={solve} className={primaryButton}>
-              {run.status === "idle" ? "Solve" : "Solve again"}
+              {run.status === "idle" ? t.solve : t.solveAgain}
             </button>
           )}
           {run.status === "done" && run.reason !== "converged" && !stale && (
             <button type="button" onClick={() => solver.resume({ maxIterations: run.progress.iteration + CONTINUE_ITERATIONS })} className={outlineButton}>
-              Continue
+              {t.continue}
             </button>
           )}
         </div>
@@ -261,10 +265,10 @@ export function SolverTool() {
         {run.status !== "idle" && (
           <div className="mt-4">
             <p role="status" className={`m-0 ${run.status === "error" ? "text-raise" : ""}`}>
-              {runText(run)}
+              {runText(run, t)}
             </p>
             {running && <ProgressMeter progress={run.progress} />}
-            {stale && run.status !== "error" && <p className="mt-2 mb-0 text-dust">The setup has changed since this solve. Solve again to update the strategy.</p>}
+            {stale && run.status !== "error" && <p className="mt-2 mb-0 text-dust">{t.stale}</p>}
           </div>
         )}
       </section>
@@ -309,7 +313,7 @@ export function SolverTool() {
       )}
       {sheet?.kind === "range" && (
         <RangeSheet
-          title={`${players[sheet.player]}'s range`}
+          title={t.rangeSheet(players[sheet.player])}
           value={resolved.rangeTexts[sheet.player]}
           load={(apply) => <LoadRangeButton onLoad={apply} />}
           onDone={(text) => {
@@ -321,7 +325,7 @@ export function SolverTool() {
       )}
       {sheet?.kind === "board" && (
         <CardKeypadSheet
-          title="Board"
+          title={messages.common.board}
           value={setup.board}
           max={5}
           unavailable={setup.hand}
@@ -334,7 +338,7 @@ export function SolverTool() {
       )}
       {sheet?.kind === "hand" && (
         <CardKeypadSheet
-          title="Your hand"
+          title={messages.common.yourHand}
           value={setup.hand}
           max={2}
           unavailable={setup.board}

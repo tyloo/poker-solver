@@ -45,6 +45,12 @@ describe("createEquityRunner", () => {
     expect(messages).toEqual([{ id: 4, message: "A♥ is used twice.", type: "error" }]);
   });
 
+  it("reports input errors in the request's language", async () => {
+    const { handle, messages } = setup();
+    await handle({ id: 5, input: { ...turn, board: cards("AhKd7c") }, locale: "fr", type: "start" });
+    expect(messages).toEqual([{ id: 5, message: "A♥ est utilisée deux fois.", type: "error" }]);
+  });
+
   it("posts progress while a long job runs", async () => {
     const { handle, messages } = setup({ tick: 20 });
     await handle({ id: 2, input: preflop, type: "start" });

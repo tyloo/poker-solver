@@ -1,24 +1,23 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ToolHeader } from "@/components/tool-header";
-import { GLOSSARY } from "@/content/glossary";
-import { groupByTopic } from "@/lib/glossary/glossary";
+import { glossaryTerms, groupByTopic } from "@/lib/glossary/glossary";
+import type { Locale } from "@/lib/i18n/locale";
+import { messages } from "@/lib/i18n/messages";
 import { GlossaryList } from "./glossary-list";
 import { FilterField, GlossaryTool } from "./glossary-tool";
 
-export const metadata: Metadata = { title: "Glossary" };
-
-export default function GlossaryPage() {
+export function GlossaryPage({ locale }: { locale: Locale }) {
+  const { title, lede } = messages(locale).tools.glossary;
   return (
     <>
-      <ToolHeader title="Glossary" lede="The poker terms and abbreviations the app uses, in plain English." />
+      <ToolHeader title={title} lede={lede} />
       <Suspense
         fallback={
           // The full list is in the static HTML, so /glossary#<term> scrolls to it on load.
           <div className="flex flex-col gap-6">
             <FilterField value="" />
             <p className="-mt-3 mb-0 min-h-[1.5em]" />
-            <GlossaryList groups={groupByTopic(GLOSSARY)} />
+            <GlossaryList groups={groupByTopic(glossaryTerms(locale), locale)} />
           </div>
         }
       >

@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { GLOSSARY } from "@/content/glossary";
-import { filterTerms, GLOSSARY_TOPICS, type GlossaryTerm, glossaryErrors, glossaryHref, groupByTopic, termNames } from "./glossary";
+import { GLOSSARY_FR } from "@/content/glossary-fr";
+import { messages } from "@/lib/i18n/messages";
+import {
+  filterTerms,
+  frenchTypography,
+  GLOSSARY_TOPICS,
+  type GlossaryTerm,
+  glossaryErrors,
+  glossaryHref,
+  glossaryTerms,
+  groupByTopic,
+  termNames,
+  translateGlossary,
+} from "./glossary";
 
 const term = (fields: Partial<GlossaryTerm> & Pick<GlossaryTerm, "id" | "term">): GlossaryTerm => ({ definition: "A definition.", topic: "actions", ...fields });
 
@@ -53,10 +66,11 @@ describe("filterTerms", () => {
 
 describe("groupByTopic", () => {
   it("follows the topic order and skips empty topics", () => {
-    const groups = groupByTopic(SAMPLE);
+    const groups = groupByTopic(SAMPLE, "en");
     expect(groups.map((group) => group.topic)).toEqual(["numbers", "actions", "table"]);
     expect(ids(groups[0].terms)).toEqual(["spr", "pot-odds"]);
-    expect(groups[0].label).toBeTruthy();
+    expect(groups[0].label).toBe("Numbers the tools show");
+    expect(groupByTopic(SAMPLE, "fr")[0].label).toBe("Les chiffres des outils");
   });
 });
 
@@ -213,7 +227,7 @@ describe("the repo glossary", () => {
 
   it("only uses known topics, and every topic has terms", () => {
     for (const entry of GLOSSARY) expect(GLOSSARY_TOPICS).toContain(entry.topic);
-    expect(groupByTopic(GLOSSARY).map((group) => group.topic)).toEqual([...GLOSSARY_TOPICS]);
+    expect(groupByTopic(GLOSSARY, "en").map((group) => group.topic)).toEqual([...GLOSSARY_TOPICS]);
   });
 
   it.each(REQUIRED)("has an entry named %s", (name) => {
@@ -226,5 +240,69 @@ describe("the repo glossary", () => {
     for (const id of ["equity", "pot-odds", "required-equity", "spr", "ev", "exploitability", "stack-tier", "player-type", "spot", "preflop-line", "push-fold-chart"]) {
       expect(GLOSSARY.map((entry) => entry.id)).toContain(id);
     }
+  });
+});
+
+describe("translateGlossary", () => {
+  const french = translateGlossary(SAMPLE, { push: { aliases: ["Tapis"], definition: "Partir à tapis : simple.", example: "10 000 jetons", term: "Push" } });
+
+  it("keeps the anchor and topic, and leaves untranslated terms alone", () => {
+    expect(french[0]).toMatchObject({ id: "push", term: "Push", topic: "actions" });
+    expect(french[1]).toBe(SAMPLE[1]);
+  });
+
+  it("keeps the English names searchable", () => {
+    expect(ids(filterTerms(french, "tapis"))).toEqual(["push"]);
+    expect(ids(filterTerms(french, "shove"))).toEqual(["push"]);
+  });
+
+  it("applies French typography", () => {
+    expect(french[0].definition).toBe("Partir à tapis\u00a0: simple.");
+    expect(french[0].example).toBe("10\u202f000 jetons");
+    expect(frenchTypography("Prêt ? 82 % « oui » ; non")).toBe("Prêt\u202f? 82\u00a0% «\u00a0oui\u00a0»\u202f; non");
+  });
+});
+
+describe("the French glossary", () => {
+  const french = glossaryTerms("fr");
+  const englishIds = GLOSSARY.map((entry) => entry.id);
+
+  it("translates every term, and only those", () => {
+    expect(Object.keys(GLOSSARY_FR).sort()).toEqual([...englishIds].sort());
+  });
+
+  it("is valid", () => {
+    expect(glossaryErrors(french)).toEqual([]);
+    expect(french.map((entry) => entry.id)).toEqual(englishIds);
+  });
+
+  it.each([
+    "Équité",
+    "Cote du pot",
+    "Équité requise",
+    "Relancer",
+    "Se coucher",
+    "Tapis",
+    "Isoler",
+    "Profil de joueur",
+    "Serré",
+    "Large",
+    "Ligne préflop",
+    "Cartes mortes",
+    "Niveau de blindes",
+    "Tranche de stack",
+    "Face à un open",
+    "Face aux limpers",
+    "Face à un push",
+  ])("finds %s", (name) => {
+    expect(filterTerms(french, name).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("still finds the English names", () => {
+    for (const name of REQUIRED) expect(filterTerms(french, name).length, name).toBeGreaterThanOrEqual(1);
+  });
+
+  it("finds the action names the French tools show", () => {
+    for (const label of Object.values(messages("fr").actions)) expect(filterTerms(french, label).length, label).toBeGreaterThanOrEqual(1);
   });
 });

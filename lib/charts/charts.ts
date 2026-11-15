@@ -69,7 +69,7 @@ const pushFoldCache = new Map<string, PushFoldChart>();
 
 /** The repo Push/fold chart for a key from `pushFoldKeys()`. */
 export function getPushFoldChart(key: PushFoldKey): PushFoldChart {
-  const id = describePushFold(key);
+  const id = describePushFold(key, "en");
   let chart = pushFoldCache.get(id);
   if (!chart) {
     chart = buildPushFoldChart(key, pushFoldEntry(PUSH_FOLD_FILES, key));

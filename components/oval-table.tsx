@@ -1,6 +1,7 @@
 "use client";
 
 import { type Position, tablePositions } from "@/lib/poker/table";
+import { useI18n } from "./i18n-provider";
 
 type Props = {
   players: number;
@@ -22,23 +23,24 @@ function positionPoints(positions: readonly Position[]): { position: Position; x
 
 /** An oval table with the Positions of a `players`-handed game; tap a Position to take it. */
 export function OvalTable({ players, position, onPosition, marks = {} }: Props) {
+  const { t } = useI18n();
   const positions = tablePositions(players);
   const points = positionPoints(positions);
   const dealer = points.find((point) => point.position === (positions.includes("BTN") ? "BTN" : "SB"));
 
   return (
     <fieldset className="m-0 min-w-0 border-0 p-0">
-      <legend className="sr-only">Your position</legend>
+      <legend className="sr-only">{t.table.position}</legend>
       <div className="relative aspect-[16/11] w-full">
         <div aria-hidden="true" className="absolute inset-[13%_11%] rounded-[50%] border-2 border-fold bg-booth" />
         <p aria-hidden="true" className="absolute inset-x-[22%] top-1/2 m-0 -translate-y-1/2 text-center text-dust leading-tight">
           {position ? (
             <>
-              <span className="block font-bold font-display text-2xl text-chalk">You: {position}</span>
-              {players}-handed
+              <span className="block font-bold font-display text-2xl text-chalk">{t.table.you(position)}</span>
+              {t.table.handed(players)}
             </>
           ) : (
-            "Tap your position"
+            t.table.tap
           )}
         </p>
         {dealer && (

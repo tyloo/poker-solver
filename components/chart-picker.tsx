@@ -1,17 +1,9 @@
 "use client";
 
-import { type ChartSelection, chartKeyFor, groupAvailable, heroPositions, LIMPER_GROUPS, OPENER_GROUPS, SITUATION_LABELS, SITUATIONS } from "@/lib/charts/model";
-import {
-  type BrowseSelection,
-  browseSeries,
-  callerPositions,
-  isPushFoldSituation,
-  PUSH_FOLD_SITUATION_LABELS,
-  PUSH_FOLD_SITUATIONS,
-  PUSH_POSITIONS,
-  PUSHER_GROUPS,
-} from "@/lib/charts/push-fold";
+import { type ChartSelection, chartKeyFor, groupAvailable, heroPositions, LIMPER_GROUPS, OPENER_GROUPS, SITUATIONS } from "@/lib/charts/model";
+import { type BrowseSelection, browseSeries, callerPositions, isPushFoldSituation, PUSH_FOLD_SITUATIONS, PUSH_POSITIONS, PUSHER_GROUPS } from "@/lib/charts/push-fold";
 import { POSITIONS, type Position, STACK_TIER_LABELS, STACK_TIERS } from "@/lib/poker/table";
+import { useI18n } from "./i18n-provider";
 
 type Option<T> = { value: T; label: string; disabled?: boolean };
 
@@ -50,9 +42,6 @@ export function Segmented<T extends string>({
   );
 }
 
-const OPENER_LABELS = { early: "Early", late: "Late", middle: "Middle" } as const;
-const LIMPER_LABELS = { "1": "1 limper", "2+": "2+ limpers" } as const;
-
 type PickerProps =
   | { value: ChartSelection; onChange: (value: ChartSelection) => void; showTier?: boolean; pushFold?: false }
   | {
@@ -87,52 +76,54 @@ function positionsFor(situation: BrowseSelection["situation"]): readonly Positio
 
 /** Picks a Chart by Situation, Position, opener or limper group and (optionally) Stack tier. Impossible combinations are disabled. */
 export function ChartPicker(props: PickerProps) {
+  const { t } = useI18n();
+  const labels = t.charts;
   const { showTier = true, pushFold = false } = props;
   const onChange = props.onChange as (value: BrowseSelection) => void;
   const current = normalise(props.value);
   const change = (patch: Partial<BrowseSelection>) => onChange(normalise({ ...current, ...patch }));
   const positions = positionsFor(current.situation);
   const situations = [
-    ...SITUATIONS.map((situation) => ({ label: SITUATION_LABELS[situation], value: situation })),
-    ...(pushFold ? PUSH_FOLD_SITUATIONS.map((situation) => ({ label: PUSH_FOLD_SITUATION_LABELS[situation], value: situation })) : []),
+    ...SITUATIONS.map((situation) => ({ label: labels.situations[situation], value: situation })),
+    ...(pushFold ? PUSH_FOLD_SITUATIONS.map((situation) => ({ label: labels.situations[situation], value: situation })) : []),
   ];
 
   return (
     <div className="flex flex-col gap-4">
-      <Segmented legend="Situation" options={situations} value={current.situation} onChange={(situation) => change({ situation })} wrap={pushFold} />
+      <Segmented legend={t.picker.situation} options={situations} value={current.situation} onChange={(situation) => change({ situation })} wrap={pushFold} />
       <Segmented
-        legend="Your position"
+        legend={t.picker.position}
         options={POSITIONS.map((position) => ({ disabled: !positions.includes(position), label: position, value: position }))}
         value={current.position}
         onChange={(position) => change({ position })}
       />
       {current.situation === "vs-open" && (
         <Segmented
-          legend="Opener"
-          options={OPENER_GROUPS.map((opener) => ({ disabled: !groupAvailable("vs-open", current.position, opener), label: OPENER_LABELS[opener], value: opener }))}
+          legend={t.picker.opener}
+          options={OPENER_GROUPS.map((opener) => ({ disabled: !groupAvailable("vs-open", current.position, opener), label: labels.groups[opener], value: opener }))}
           value={current.opener}
           onChange={(opener) => change({ opener })}
         />
       )}
       {current.situation === "vs-push" && (
         <Segmented
-          legend="Pusher"
-          options={PUSHER_GROUPS.map((opener) => ({ disabled: !callerPositions(opener).includes(current.position), label: OPENER_LABELS[opener], value: opener }))}
+          legend={t.picker.pusher}
+          options={PUSHER_GROUPS.map((opener) => ({ disabled: !callerPositions(opener).includes(current.position), label: labels.groups[opener], value: opener }))}
           value={current.opener}
           onChange={(opener) => change({ opener })}
         />
       )}
       {current.situation === "vs-limpers" && (
         <Segmented
-          legend="Limpers"
-          options={LIMPER_GROUPS.map((limpers) => ({ disabled: !groupAvailable("vs-limpers", current.position, limpers), label: LIMPER_LABELS[limpers], value: limpers }))}
+          legend={t.picker.limpers}
+          options={LIMPER_GROUPS.map((limpers) => ({ disabled: !groupAvailable("vs-limpers", current.position, limpers), label: labels.limpers[limpers], value: limpers }))}
           value={current.limpers}
           onChange={(limpers) => change({ limpers })}
         />
       )}
       {showTier && !isPushFoldSituation(current.situation) && (
         <Segmented
-          legend="Stack"
+          legend={t.picker.stack}
           options={STACK_TIERS.map((tier) => ({ label: STACK_TIER_LABELS[tier], value: tier }))}
           value={current.tier}
           onChange={(tier) => change({ tier })}

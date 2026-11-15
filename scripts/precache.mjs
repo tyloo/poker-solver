@@ -13,7 +13,7 @@ const files = entries.filter((entry) => entry.isFile()).map((entry) => relative(
 const wanted = (file) => {
   if (file.startsWith("_next/static/")) return !file.endsWith(".map") && !file.endsWith(".ts"); // Turbopack also copies worker sources as unused .ts files.
   if (file.startsWith("_not-found")) return false;
-  return file.endsWith(".txt") || file === "manifest.webmanifest" || /^(apple-)?icon[\w-]*\.png$/.test(file);
+  return file.endsWith(".txt") || /^(fr\/)?manifest\.webmanifest$/.test(file) || /^(apple-)?icon[\w-]*\.png$/.test(file);
 };
 const urls = files
   .filter(wanted)

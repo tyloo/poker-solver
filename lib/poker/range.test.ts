@@ -186,3 +186,10 @@ describe("Hand class weights", () => {
     expect(comboCount(range)).toBeCloseTo(12 * 0.4);
   });
 });
+
+describe("range errors in French", () => {
+  it("explains the problem in French", () => {
+    expect(parseRange("AKx", "fr")).toEqual({ error: "Entrée invalide\u00a0: «\u00a0AKx\u00a0»", ok: false });
+    expect(parseRange("AA, AA", "fr")).toEqual({ error: "AA apparaît deux fois\u00a0: «\u00a0AA\u00a0» recoupe une entrée précédente", ok: false });
+  });
+});

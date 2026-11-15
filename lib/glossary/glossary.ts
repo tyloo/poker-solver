@@ -1,16 +1,11 @@
+import { GLOSSARY } from "@/content/glossary";
+import { GLOSSARY_FR } from "@/content/glossary-fr";
+import type { Locale } from "@/lib/i18n/locale";
+import { messages } from "@/lib/i18n/messages";
+
 /** Glossary topics in page order. */
 export const GLOSSARY_TOPICS = ["numbers", "actions", "cards", "table", "ranges", "player-types", "solver"] as const;
 export type GlossaryTopic = (typeof GLOSSARY_TOPICS)[number];
-
-export const GLOSSARY_TOPIC_LABELS: Record<GlossaryTopic, string> = {
-  actions: "Actions",
-  cards: "Cards and streets",
-  numbers: "Numbers the tools show",
-  "player-types": "Player types",
-  ranges: "Hands, ranges and Charts",
-  solver: "Solver and theory",
-  table: "Table, stacks and tournament",
-};
 
 export type GlossaryTerm = {
   /** Stable anchor: `/glossary#<id>`. Keep it when the wording changes, other tools link to it. */
@@ -23,6 +18,9 @@ export type GlossaryTerm = {
   definition: string;
   example?: string;
 };
+
+/** A term in another language; the anchor, topic and order come from the English term. */
+export type GlossaryTranslation = Pick<GlossaryTerm, "term" | "abbreviation" | "aliases" | "definition" | "example">;
 
 export const MAX_DEFINITION_LENGTH = 320;
 
@@ -44,10 +42,9 @@ export function filterTerms(terms: readonly GlossaryTerm[], query: string): Glos
 export type GlossaryGroup = { topic: GlossaryTopic; label: string; terms: GlossaryTerm[] };
 
 /** Terms grouped in topic order; topics without terms are left out. */
-export function groupByTopic(terms: readonly GlossaryTerm[]): GlossaryGroup[] {
-  return GLOSSARY_TOPICS.map((topic) => ({ label: GLOSSARY_TOPIC_LABELS[topic], terms: terms.filter((entry) => entry.topic === topic), topic })).filter(
-    (group) => group.terms.length > 0,
-  );
+export function groupByTopic(terms: readonly GlossaryTerm[], locale: Locale): GlossaryGroup[] {
+  const labels = messages(locale).glossary.topics;
+  return GLOSSARY_TOPICS.map((topic) => ({ label: labels[topic], terms: terms.filter((entry) => entry.topic === topic), topic })).filter((group) => group.terms.length > 0);
 }
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -76,3 +73,37 @@ export function glossaryErrors(terms: readonly GlossaryTerm[]): string[] {
   }
   return errors;
 }
+
+/** French typography for plain-space text: no-break spaces before ":" and "%", inside « », in 1 000; narrow ones before ";", "?" and "!". */
+export const frenchTypography = (text: string) =>
+  text
+    .replace(/ ([:%»])/g, "\u00a0$1")
+    .replace(/« /g, "«\u00a0")
+    .replace(/ ([;?!])/g, "\u202f$1")
+    .replace(/(\d) (?=\d{3}\b)/g, "$1\u202f");
+
+/**
+ * Terms translated by id, keeping the English anchors, topics and order. The English names stay searchable.
+ * A term without a translation stays in English (the tests require one for every term).
+ */
+export function translateGlossary(terms: readonly GlossaryTerm[], translations: Readonly<Record<string, GlossaryTranslation>>): GlossaryTerm[] {
+  return terms.map((entry) => {
+    const translation = translations[entry.id];
+    if (!translation) return entry;
+    const { term, abbreviation = entry.abbreviation, definition, example } = translation;
+    const english = termNames(entry).filter((name) => name !== term && name !== abbreviation);
+    return {
+      ...entry,
+      abbreviation,
+      aliases: [...new Set([...(translation.aliases ?? []), ...english])],
+      definition: frenchTypography(definition),
+      example: example === undefined ? undefined : frenchTypography(example),
+      term,
+    };
+  });
+}
+
+const FRENCH_GLOSSARY = translateGlossary(GLOSSARY, GLOSSARY_FR);
+
+/** The Glossary in a language. */
+export const glossaryTerms = (locale: Locale): readonly GlossaryTerm[] => (locale === "fr" ? FRENCH_GLOSSARY : GLOSSARY);

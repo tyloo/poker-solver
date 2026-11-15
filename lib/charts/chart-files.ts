@@ -35,7 +35,8 @@ export type ChartEntry = Readonly<Partial<Record<ActionId, string>>>;
 
 export type ActionRange = ChartAction & { range: Range };
 
-export type Chart = { key: ChartKey; title: string; baseline: boolean; actions: ActionRange[] };
+/** Name it with `describeChart(chart.key, locale)`. */
+export type Chart = { key: ChartKey; baseline: boolean; actions: ActionRange[] };
 
 type Lookup = Partial<Record<string, Partial<Record<Position, ChartEntry>>>>;
 
@@ -47,7 +48,7 @@ export function chartEntry(files: ChartFiles, key: ChartKey): ChartEntry | undef
 }
 
 /** Problems with one Chart entry, each prefixed by the Chart's name. */
-export function chartEntryErrors(key: ChartKey, entry: ChartEntry | undefined, expected: readonly ChartAction[] = chartActions(key), title = describeChart(key)): string[] {
+export function chartEntryErrors(key: ChartKey, entry: ChartEntry | undefined, expected: readonly ChartAction[] = chartActions(key), title = describeChart(key, "en")): string[] {
   return entryErrors(title, entry, expected);
 }
 
@@ -73,7 +74,7 @@ export function validateChartFiles(files: ChartFiles): string[] {
  * Throws on an invalid entry; `actions` defaults to the Chart's standard actions.
  */
 export function buildChart(key: ChartKey, entry: ChartEntry | undefined, baseline: boolean, actions: readonly ChartAction[] = chartActions(key)): Chart {
-  return { actions: actionRanges(describeChart(key), entry, actions), baseline, key, title: describeChart(key) };
+  return { actions: actionRanges(describeChart(key, "en"), entry, actions), baseline, key };
 }
 
 /** One Range per action of a valid entry, the remainder included. Throws with every problem, each prefixed by `title`. */

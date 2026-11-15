@@ -46,12 +46,17 @@ describe("overBudgetMessage", () => {
   const over = (target: ReturnType<typeof spot>) => {
     const result = estimateSpot(target, 1);
     if (!result.ok || result.estimate.fits) throw new Error("expected an over-budget estimate");
-    return overBudgetMessage(result.estimate, target);
+    return overBudgetMessage(result.estimate, target, "en");
   };
 
   it("offers only what the setup can change: narrower ranges, fewer bet sizes, a later street", () => {
     const turn = spot({ board: "Kd 9s 6c 2h", ip: NARROW, oop: NARROW });
     expect(over(turn)).toMatch(/^This spot needs about \d+ MB, above the 1 MB budget\. Narrow the ranges, drop a bet size or start from a later street\.$/);
+    const result = estimateSpot(turn, 1);
+    if (!result.ok) throw new Error(result.error);
+    expect(overBudgetMessage(result.estimate, turn, "fr")).toMatch(
+      /^Ce spot demande environ \d+\u00a0Mo, au-delà du budget de 1\u00a0Mo\. Resserre les ranges, retire une taille de mise ou pars d’une street plus tardive\.$/,
+    );
   });
 
   it("does not offer a bet size to drop when there is one, nor a later street on the river", () => {
@@ -67,6 +72,6 @@ describe("overBudgetMessage", () => {
     const flop = spot({ betSizes: [0.75], board: "Kd 9s 6c", effectiveStack: 1750, ip: WIDE, oop: WIDE, pot: 550 });
     const result = estimateSpot(flop);
     if (!result.ok) throw new Error(result.error);
-    expect(() => new Solver(flop)).toThrow(overBudgetMessage(result.estimate, flop));
+    expect(() => new Solver(flop)).toThrow(overBudgetMessage(result.estimate, flop, "en"));
   });
 });

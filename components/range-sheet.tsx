@@ -2,9 +2,12 @@
 
 import { type ReactNode, useRef, useState } from "react";
 import { formatPercent } from "@/lib/format";
+import type { Locale } from "@/lib/i18n/locale";
+import { messages } from "@/lib/i18n/messages";
 import { COMBO_COUNT, HAND_CLASS_NAMES } from "@/lib/poker/combo";
 import { createRange, formatRange, handClassWeights, parseRange, type Range, setHandClassWeight } from "@/lib/poker/range";
 import { primaryButton, textButton } from "./buttons";
+import { useI18n } from "./i18n-provider";
 import { RangeGrid } from "./range-grid";
 import { Sheet } from "./sheet";
 
@@ -21,14 +24,14 @@ type Props = {
   load?: (apply: (range: Range) => void) => ReactNode;
 };
 
-export function rangeSummary(range: Range): string {
+export function rangeSummary(range: Range, locale: Locale): string {
   const combos = range.reduce((sum, weight) => sum + weight, 0);
-  const rounded = Number.isInteger(combos) ? combos : combos.toFixed(1);
-  return `${rounded} combos, ${((combos / COMBO_COUNT) * 100).toFixed(1)}% of hands`;
+  return messages(locale).rangeSheet.summary(combos, combos / COMBO_COUNT);
 }
 
 /** Edits a Range on the 13×13 grid or as a range string; nothing changes until Done. */
 export function RangeSheet({ title, value, onDone, onClose, load }: Props) {
+  const { locale, t } = useI18n();
   const [range, setRange] = useState<Range>(() => {
     const parsed = parseRange(value);
     return parsed.ok ? parsed.range : createRange();
@@ -61,20 +64,22 @@ export function RangeSheet({ title, value, onDone, onClose, load }: Props) {
       onClose={onClose}
       actions={
         <button type="button" disabled={error !== null} onClick={() => onDone(formatRange(range))} className={primaryButton}>
-          Done
+          {t.common.done}
         </button>
       }
     >
       <RangeGrid
-        label="Hand classes in the range"
+        label={t.rangeSheet.gridLabel}
         segments={(cls) => (weights[cls] > 0 ? [{ color: "var(--color-chalk)", share: weights[cls] }] : [])}
-        describe={(cls) => `${HAND_CLASS_NAMES[cls]}, ${weights[cls] > 0 ? (weights[cls] === 1 ? "in range" : formatPercent(weights[cls])) : "not in range"}`}
+        describe={(cls) =>
+          `${HAND_CLASS_NAMES[cls]}, ${weights[cls] > 0 ? (weights[cls] === 1 ? t.rangeSheet.inRange : formatPercent(weights[cls], locale)) : t.rangeSheet.notInRange}`
+        }
         onPaint={paint}
       />
-      <p className="mt-2 mb-4 text-dust">{rangeSummary(range)}</p>
+      <p className="mt-2 mb-4 text-dust">{rangeSummary(range, locale)}</p>
 
       <label className="block">
-        <span className="mb-1 block font-bold">Range string</span>
+        <span className="mb-1 block font-bold">{t.common.rangeString}</span>
         <textarea
           value={text}
           rows={2}
@@ -85,7 +90,7 @@ export function RangeSheet({ title, value, onDone, onClose, load }: Props) {
           aria-describedby={error ? "range-error" : undefined}
           onChange={(event) => {
             setText(event.target.value);
-            const parsed = parseRange(event.target.value);
+            const parsed = parseRange(event.target.value, locale);
             if (parsed.ok) {
               setRange(parsed.range);
               setError(null);
@@ -103,7 +108,7 @@ export function RangeSheet({ title, value, onDone, onClose, load }: Props) {
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {load?.(replace)}
         <button type="button" onClick={() => replace(createRange())} className={textButton}>
-          Clear
+          {t.common.clear}
         </button>
       </div>
     </Sheet>

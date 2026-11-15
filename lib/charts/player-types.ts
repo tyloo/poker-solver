@@ -5,8 +5,6 @@ import { type ActionId, type ChartKey, chartActions, LIMPER_GROUPS, type LimperG
 export const PLAYER_TYPES = ["tight", "standard", "loose"] as const;
 export type PlayerType = (typeof PLAYER_TYPES)[number];
 
-export const PLAYER_TYPE_LABELS: Record<PlayerType, string> = { loose: "Loose", standard: "Standard", tight: "Tight" };
-
 /**
  * Preflop Ranges of a non-Standard Player type, used to estimate an opponent's Range from
  * the action they took. One Range set for every Stack tier; Vs open and Vs limpers depend only

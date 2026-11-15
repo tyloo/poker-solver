@@ -8,6 +8,7 @@ const TOOLS = [
   { href: "/equity", label: "Equity" },
   { href: "/ranges", label: "Ranges" },
   { href: "/solver", label: "Solver" },
+  { href: "/glossary", label: "Glossary" },
 ] as const;
 
 export function TabBar() {
@@ -15,7 +16,7 @@ export function TabBar() {
 
   return (
     <nav aria-label="Tools" className="fixed inset-x-0 bottom-0 z-40 border-booth border-t-2 bg-night pb-[env(safe-area-inset-bottom)]">
-      <ul className="mx-auto grid max-w-[30rem] grid-cols-4">
+      <ul className="mx-auto grid max-w-[30rem] grid-cols-5">
         {TOOLS.map(({ href, label }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
@@ -23,7 +24,7 @@ export function TabBar() {
               <Link
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={`relative flex h-16 items-center justify-center font-display font-bold text-xl transition-colors focus-visible:outline-3 focus-visible:outline-chalk focus-visible:-outline-offset-4 ${
+                className={`relative flex h-16 items-center justify-center font-display font-bold text-lg transition-colors min-[25rem]:text-xl focus-visible:outline-3 focus-visible:outline-chalk focus-visible:-outline-offset-4 ${
                   active ? "text-chalk" : "text-dust hover:text-chalk"
                 }`}
               >

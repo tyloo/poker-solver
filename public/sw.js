@@ -2,7 +2,7 @@
 // network-first so a new deploy shows up, falling back to the cache when offline.
 // scripts/precache.mjs fills PRECACHE with the build's assets (worker chunks included) and versions CACHE.
 const CACHE = "poker-solver-v1";
-const PAGES = ["/", "/equity", "/ranges", "/solver"];
+const PAGES = ["/", "/equity", "/ranges", "/solver", "/glossary"];
 const PRECACHE = [];
 
 self.addEventListener("install", (event) => {

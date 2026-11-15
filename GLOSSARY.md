@@ -18,6 +18,10 @@ _Avoid_: Charts tab, preflop
 The tool that computes a game-theory-optimal postflop strategy for a heads-up **Spot**.
 _Avoid_: GTO, engine
 
+**Glossary**:
+The tool that explains, in plain English, the poker terms used in the app.
+_Avoid_: Help, dictionary
+
 **Advisor**:
 The tool that recommends an action for a concrete hand in a concrete situation.
 _Avoid_: Helper, coach

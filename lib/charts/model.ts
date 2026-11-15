@@ -67,13 +67,13 @@ export function chartKeys(): ChartKey[] {
   ]);
 }
 
-export type ActionId = "raise" | "call" | "limp" | "check" | "fold";
+export type ActionId = "raise" | "call" | "limp" | "check" | "push" | "fold";
 export type ActionColour = "raise" | "call" | "push" | "fold";
 
 /** One action of a Chart. The remainder action (fold, or check for the BB behind limpers) is implicit in Chart files. */
 export type ChartAction = { id: ActionId; label: string; colour: ActionColour; remainder: boolean };
 
-const action = (id: ActionId, label: string, colour: ActionColour, remainder = false): ChartAction => ({ colour, id, label, remainder });
+export const action = (id: ActionId, label: string, colour: ActionColour, remainder = false): ChartAction => ({ colour, id, label, remainder });
 
 /** The written actions of a Chart (as keyed in Chart files) followed by its implicit remainder. */
 export function chartActions(key: ChartKey, written?: readonly ActionId[]): ChartAction[] {

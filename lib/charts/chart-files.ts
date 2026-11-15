@@ -48,6 +48,11 @@ export function chartEntry(files: ChartFiles, key: ChartKey): ChartEntry | undef
 
 /** Problems with one Chart entry, each prefixed by the Chart's name. */
 export function chartEntryErrors(key: ChartKey, entry: ChartEntry | undefined, expected: readonly ChartAction[] = chartActions(key), title = describeChart(key)): string[] {
+  return entryErrors(title, entry, expected);
+}
+
+/** Problems with an entry that should list the written (non-remainder) `expected` actions, each prefixed by `title`. */
+export function entryErrors(title: string, entry: ChartEntry | undefined, expected: readonly ChartAction[]): string[] {
   if (!entry) return [`${title}: missing Chart`];
   const allowed = expected.filter((action) => !action.remainder).map((action) => action.id as string);
   const unexpected = Object.keys(entry).filter((id) => !allowed.includes(id));
@@ -68,7 +73,12 @@ export function validateChartFiles(files: ChartFiles): string[] {
  * Throws on an invalid entry; `actions` defaults to the Chart's standard actions.
  */
 export function buildChart(key: ChartKey, entry: ChartEntry | undefined, baseline: boolean, actions: readonly ChartAction[] = chartActions(key)): Chart {
-  const errors = chartEntryErrors(key, entry, actions);
+  return { actions: actionRanges(describeChart(key), entry, actions), baseline, key, title: describeChart(key) };
+}
+
+/** One Range per action of a valid entry, the remainder included. Throws with every problem, each prefixed by `title`. */
+export function actionRanges(title: string, entry: ChartEntry | undefined, actions: readonly ChartAction[]): ActionRange[] {
+  const errors = entryErrors(title, entry, actions);
   if (errors.length > 0 || !entry) throw new Error(errors.join("\n"));
   const written = actions.filter((action) => !action.remainder);
   const result = validateChart(Object.fromEntries(written.map((action) => [action.id, entry[action.id] ?? ""])));
@@ -80,12 +90,7 @@ export function buildChart(key: ChartKey, entry: ChartEntry | undefined, baselin
     // Round away float noise so a fully played Combo leaves exactly nothing.
     remainder[combo] = Math.max(0, Math.round((1 - played) * 1e9) / 1e9);
   }
-  return {
-    actions: actions.map((action) => ({ ...action, range: action.remainder ? remainder : result.ranges[action.id] })),
-    baseline,
-    key,
-    title: describeChart(key),
-  };
+  return actions.map((action) => ({ ...action, range: action.remainder ? remainder : result.ranges[action.id] }));
 }
 
 const property = (name: string) => (/^[A-Za-z_]\w*$/.test(name) ? `.${name}` : `[${JSON.stringify(name)}]`);

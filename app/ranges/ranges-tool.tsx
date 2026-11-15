@@ -6,12 +6,14 @@ import { ActionLegend, ChartGrid, classSummary } from "@/components/chart-grid";
 import { ChartPicker } from "@/components/chart-picker";
 import { type Chart, chartFileLocation } from "@/lib/charts/chart-files";
 import { getChart } from "@/lib/charts/charts";
-import { type ActionId, type ChartSelection, chartKeyFor, parseChartParams, selectionParams } from "@/lib/charts/model";
+import { type ActionId, type ChartSelection, chartKeyFor } from "@/lib/charts/model";
+import { type BrowseSelection, browseParams, browseSeries, isPushFoldSituation, parseBrowseParams } from "@/lib/charts/push-fold";
 import { draftStrings } from "@/lib/charts/scratchpad";
 import type { HandClassId } from "@/lib/poker/combo";
 import { handClassWeights } from "@/lib/poker/range";
 import { OPEN_SIZE_BB } from "@/lib/poker/table";
 import { setUrlParams } from "@/lib/url-state";
+import { PushFoldView } from "./push-fold-view";
 import { Scratchpad } from "./scratchpad";
 
 const EDIT_PARAM = "edit";
@@ -32,7 +34,22 @@ function BaselineNote({ chart }: { chart: Chart }) {
 
 export function RangesTool() {
   const params = useSearchParams();
-  const selection = parseChartParams(params);
+  const browsing = parseBrowseParams(params);
+  const select = (next: BrowseSelection) => setUrlParams(browseParams(next));
+  const { situation } = browsing;
+  if (isPushFoldSituation(situation)) {
+    return (
+      <div className="flex flex-col gap-6">
+        <ChartPicker pushFold value={browsing} onChange={select} />
+        <PushFoldView series={browseSeries({ ...browsing, situation })} />
+      </div>
+    );
+  }
+  return <ChartView selection={{ ...browsing, situation }} select={select} />;
+}
+
+function ChartView({ selection, select }: { selection: ChartSelection; select: (next: BrowseSelection) => void }) {
+  const params = useSearchParams();
   const key = chartKeyFor(selection);
   const chart = getChart(key);
   const [selected, setSelected] = useState<HandClassId | null>(null);
@@ -49,7 +66,6 @@ export function RangesTool() {
     );
   }
 
-  const select = (next: ChartSelection) => setUrlParams(selectionParams(next));
   const startEditing = () => {
     const draft = Object.fromEntries(chart.actions.filter((action) => !action.remainder).map((action) => [action.id, handClassWeights(action.range)]));
     const strings = draftStrings(draft);
@@ -58,7 +74,7 @@ export function RangesTool() {
 
   return (
     <div className="flex flex-col gap-6">
-      <ChartPicker value={selection} onChange={select} />
+      <ChartPicker pushFold value={selection} onChange={select} />
 
       <section aria-labelledby="chart-title" className="flex flex-col gap-4">
         <div>

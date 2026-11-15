@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { COMBO_COUNT, parseHandClass } from "@/lib/poker/combo";
+import { COMBO_COUNT, handClassCombos, parseHandClass } from "@/lib/poker/combo";
 import { handClassWeights, type Range } from "@/lib/poker/range";
 import { POSITIONS, STACK_TIERS } from "@/lib/poker/table";
-import { CHART_FILES, chartErrors, estimateRange, getChart, PLAYER_TYPE_FILES, playerTypeChart } from "./charts";
+import { HU_PUSH_MAX_STACK, HU_PUSH_SHARE, headsUpMismatches } from "@/lib/push-fold/hrc-reference";
+import { CHART_FILES, chartErrors, estimateRange, getChart, getPushFoldChart, PLAYER_TYPE_FILES, playerTypeChart, pushFoldFrequencies } from "./charts";
 import { type ActionId, type ChartKey, chartKeys, heroPositions } from "./model";
+import { PUSH_FOLD_DEPTHS, PUSH_POSITIONS, PUSHER_GROUPS, pushFoldKeys, pushFoldSeries } from "./push-fold";
 
 const share = (range: Range | null) => (range ?? new Float64Array(COMBO_COUNT)).reduce((sum, weight) => sum + weight, 0) / COMBO_COUNT;
 const weightOf = (range: Range | null, handClass: string) => handClassWeights(range ?? new Float64Array(COMBO_COUNT))[parseHandClass(handClass) ?? -1];
@@ -97,5 +99,41 @@ describe("Player types", () => {
 
   it("cover every opening Position in the repo files", () => {
     for (const file of Object.values(PLAYER_TYPE_FILES)) expect(Object.keys(file.open).sort()).toEqual(POSITIONS.filter((position) => position !== "BB").sort());
+  });
+});
+
+describe("repo Push/fold charts", () => {
+  const shareAt = (frequencies: Float64Array) => frequencies.reduce((sum, f, cls) => sum + f * handClassCombos(cls).length, 0) / COMBO_COUNT;
+
+  it("resolve every Position, pusher group and depth to a Chart", () => {
+    for (const key of pushFoldKeys()) expect(getPushFoldChart(key).key).toEqual(key);
+  });
+
+  it("match the published heads-up Nash pushing ranges for the SB", () => {
+    expect(headsUpMismatches("SB push", pushFoldFrequencies({ position: "SB", situation: "push" }), HU_PUSH_SHARE, HU_PUSH_MAX_STACK)).toEqual([]);
+  });
+
+  it("push wider from each later Position from 3bb up", () => {
+    for (const depth of PUSH_FOLD_DEPTHS.filter((depth) => depth >= 3)) {
+      const shares = PUSH_POSITIONS.map((position) => share(getPushFoldChart({ depth, position, situation: "push" }).actions[0].range));
+      expect(shares).toEqual([...shares].sort((a, b) => a - b));
+    }
+  });
+
+  it("tighten as stacks get deeper", () => {
+    for (const series of pushFoldSeries()) {
+      const shares = pushFoldFrequencies(series).map(shareAt);
+      for (let index = 1; index < shares.length; index++) expect(shares[index]).toBeLessThanOrEqual(shares[index - 1] + 0.003);
+    }
+  });
+
+  it("always push and call AA, and let the BB call wider than the SB", () => {
+    for (const series of pushFoldSeries()) for (const frequencies of pushFoldFrequencies(series)) expect(frequencies[parseHandClass("AA") ?? -1]).toBe(1);
+    for (const pusher of PUSHER_GROUPS) {
+      for (const depth of PUSH_FOLD_DEPTHS.filter((depth) => depth >= 3)) {
+        const calls = (position: "SB" | "BB") => share(getPushFoldChart({ depth, position, pusher, situation: "vs-push" }).actions[0].range);
+        expect(calls("BB")).toBeGreaterThan(calls("SB"));
+      }
+    }
   });
 });

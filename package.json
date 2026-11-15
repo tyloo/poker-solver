@@ -10,7 +10,8 @@
     "format": "biome format --write",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "generate:push-fold": "node --import ./scripts/ts-hooks.mjs --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/generate-push-fold.ts"
   },
   "dependencies": {
     "next": "16.4.6",

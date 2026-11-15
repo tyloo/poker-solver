@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { codecs, withParam } from "./url-state";
+import { codecs, withParam, withParams } from "./url-state";
 
 describe("withParam", () => {
   it("sets a param and keeps the others", () => {
@@ -10,6 +10,17 @@ describe("withParam", () => {
   it("removes a param when the value is null", () => {
     expect(withParam("?a=1&b=2", "a", null)).toBe("?b=2");
     expect(withParam("?a=1", "a", null)).toBe("");
+  });
+});
+
+describe("withParams", () => {
+  it("sets and removes several params at once", () => {
+    expect(withParams("?a=1&b=2&c=3", { a: null, b: "4", d: "5" })).toBe("?b=4&c=3&d=5");
+    expect(withParams("?a=1", { a: null })).toBe("");
+  });
+
+  it("encodes range strings", () => {
+    expect(new URLSearchParams(withParams("", { raise: "22+, AKs:0.5" })).get("raise")).toBe("22+, AKs:0.5");
   });
 });
 

@@ -27,11 +27,25 @@ export const codecs = {
 };
 
 export function withParam(search: string, key: string, value: string | null): string {
+  return withParams(search, { [key]: value });
+}
+
+/** Sets several params at once; `null` removes one. */
+export function withParams(search: string, values: Readonly<Record<string, string | null>>): string {
   const params = new URLSearchParams(search);
-  if (value === null) params.delete(key);
-  else params.set(key, value);
+  for (const [key, value] of Object.entries(values)) {
+    if (value === null) params.delete(key);
+    else params.set(key, value);
+  }
   const query = params.toString();
   return query ? `?${query}` : "";
+}
+
+/** Writes several query params as one history entry (each `useUrlState` setter writes only its own key). */
+export function setUrlParams(values: Readonly<Record<string, string | null>>, history: "replace" | "push" = "replace"): void {
+  const url = `${window.location.pathname}${withParams(window.location.search, values)}`;
+  if (history === "push") window.history.pushState(null, "", url);
+  else window.history.replaceState(null, "", url);
 }
 
 /**
@@ -42,11 +56,7 @@ export function useUrlState<T>(key: string, codec: Codec<T>, history: "replace" 
   const searchParams = useSearchParams();
   const value = codec.parse(searchParams.get(key));
 
-  const setValue = (next: T) => {
-    const url = `${window.location.pathname}${withParam(window.location.search, key, codec.serialize(next))}`;
-    if (history === "push") window.history.pushState(null, "", url);
-    else window.history.replaceState(null, "", url);
-  };
+  const setValue = (next: T) => setUrlParams({ [key]: codec.serialize(next) }, history);
 
   return [value, setValue];
 }

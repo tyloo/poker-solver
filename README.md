@@ -45,6 +45,7 @@ Then open http://localhost:3000.
 | `pnpm lint`               | Biome lint and format check                                                      |
 | `pnpm format`             | Biome format                                                                     |
 | `pnpm generate:push-fold` | Recomputes the push/fold Charts in `content/charts/` (deterministic, about 10 s) |
+| `pnpm changelog`          | Writes `CHANGELOG.md` from the release notes in `content/changelog.ts`           |
 
 The service worker only registers in production builds. To try the installable, offline app, run `pnpm build` and serve `out/` with any static file server.
 

@@ -23,6 +23,7 @@ pnpm build
 - **No new runtime dependencies** without discussing it in an issue first.
 - **Design**: dark only, with hard shadows only on playing cards and the verdict card, the verdict flip as the only automatic motion, visible keyboard focus, `prefers-reduced-motion` respected, touch targets of at least 44px, and WCAG AA contrast.
 - **Decisions**: significant architecture choices go in [`docs/adr/`](docs/adr).
+- **Releases**: add the release notes in English and French at the top of [`content/changelog.ts`](content/changelog.ts), bump `version` in `package.json` to match, run `pnpm changelog`, and tag the commit `vX.Y.Z`. The app shows the notes when you tap the version.
 
 ## Next.js version
 

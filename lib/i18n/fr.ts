@@ -38,6 +38,13 @@ export const fr: Messages = {
     glossary: { title: "Lexique", lede: "Les termes et abréviations de poker utilisés dans l’app, expliqués simplement." },
   },
   notFound: { message: "Cette page n’existe pas." },
+  changelog: {
+    version: (version: string) => `v${version}`,
+    open: (version: string) => `Version ${version}, voir les nouveautés`,
+    title: "Nouveautés",
+    kinds: { added: "Ajouts", changed: "Changements", fixed: "Corrections" },
+    date: (iso: string) => new Intl.DateTimeFormat("fr-FR", { dateStyle: "long", timeZone: "UTC" }).format(new Date(iso)),
+  },
   update: { ready: "Une nouvelle version est prête.", refresh: "Actualiser", later: "Plus tard" },
   install: {
     title: "Ajouter à l’écran d’accueil",

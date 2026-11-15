@@ -21,7 +21,7 @@ function SwitchLink({ search }: { search: string }) {
       data-switch-locale={target}
       hrefLang={target}
       lang={target}
-      className="-mt-1 -mr-2 flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 font-bold text-dust hover:text-chalk focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-2"
+      className="-mt-1 flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 font-bold text-dust hover:text-chalk focus-visible:outline-3 focus-visible:outline-chalk focus-visible:outline-offset-2"
     >
       <span aria-hidden="true" className="text-xl leading-none">
         {flag}

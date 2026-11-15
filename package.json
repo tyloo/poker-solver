@@ -1,6 +1,6 @@
 {
   "name": "poker-solver",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "private": true,
   "description": "Mobile-first No-Limit Hold'em study tool: preflop charts, equity, push/fold and a CFR solver, all in the browser",
   "license": "MIT",
@@ -12,6 +12,7 @@
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "changelog": "node --import ./scripts/ts-hooks.mjs --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/generate-changelog.ts",
     "generate:push-fold": "node --import ./scripts/ts-hooks.mjs --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/generate-push-fold.ts"
   },
   "dependencies": {

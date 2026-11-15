@@ -1,4 +1,5 @@
 import type { OpponentLine } from "@/lib/advisor/postflop";
+import type { ChangeKind } from "@/lib/changelog";
 import type { ActionName, LimperGroup, OpenerGroup, Situation } from "@/lib/charts/model";
 import type { PlayerType } from "@/lib/charts/player-types";
 import type { PushFoldSituation } from "@/lib/charts/push-fold";
@@ -32,6 +33,13 @@ export const en = {
     glossary: { title: "Glossary", lede: "The poker terms and abbreviations the app uses, in plain English." },
   } satisfies Record<Tool, { title: string; lede: string }>,
   notFound: { message: "This page does not exist." },
+  changelog: {
+    version: (version: string) => `v${version}`,
+    open: (version: string) => `Version ${version}, see what's new`,
+    title: "What's new",
+    kinds: { added: "Added", changed: "Changed", fixed: "Fixed" } satisfies Record<ChangeKind, string>,
+    date: (iso: string) => new Intl.DateTimeFormat("en-GB", { dateStyle: "long", timeZone: "UTC" }).format(new Date(iso)),
+  },
   update: { ready: "A new version is ready.", refresh: "Refresh", later: "Later" },
   install: {
     title: "Add to your home screen",

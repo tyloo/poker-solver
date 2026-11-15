@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { connectSolver, type SolveHandlers, type SolveResult, type SolverClient } from "./client";
 import { type SolverError, SolverFailure, solverErrorOf } from "./errors";
-import type { EstimateResult, SpotEstimate } from "./estimate";
+import { type EstimateResult, MAX_MEMORY_BYTES, MEMORY_BUDGET_BYTES, type SpotEstimate, safeMemoryBytes } from "./estimate";
 import type { DoneReason, SolveOptions, SolveStatus } from "./protocol";
 import type { NodeView } from "./solver";
 import type { Spot } from "./spot";
@@ -25,10 +25,12 @@ const PROGRESS_MS = 250;
 export function useSolver(spot: Spot | null, key: string) {
   const clientRef = useRef<SolverClient | null>(null);
   const progressAtRef = useRef(0);
+  const budgetRef = useRef(MEMORY_BUDGET_BYTES);
   const [estimate, setEstimate] = useState<{ key: string; result: EstimateResult } | null>(null);
   const [run, setRun] = useState<SolveRun>({ status: "idle" });
 
   useEffect(() => {
+    budgetRef.current = safeMemoryBytes((navigator as Navigator & { deviceMemory?: number }).deviceMemory);
     const client = connectSolver(new Worker(new URL("./solver.worker.ts", import.meta.url), { type: "module" }));
     clientRef.current = client;
     return () => {
@@ -40,7 +42,7 @@ export function useSolver(spot: Spot | null, key: string) {
   useEffect(() => {
     const client = clientRef.current;
     if (!client || !spot) return;
-    client.estimate(spot).then(
+    client.estimate(spot, budgetRef.current).then(
       (result) => {
         if (clientRef.current === client) setEstimate({ key, result });
       },
@@ -82,8 +84,10 @@ export function useSolver(spot: Spot | null, key: string) {
     /** The estimate of the current Spot, or null while it is computed. */
     estimate: estimate && estimate.key === key ? estimate.result : null,
     run,
-    solve() {
-      if (spot) start(key, null, (client, handlers) => client.solve(spot, undefined, handlers));
+    /** `anyway` lifts the phone's safe memory limit up to the hard cap, once the user accepts the risk of a crash. */
+    solve(anyway = false) {
+      const budget = anyway ? MAX_MEMORY_BYTES : budgetRef.current;
+      if (spot) start(key, null, (client, handlers) => client.solve(spot, undefined, handlers, budget));
     },
     /** Ends the solve after its slice; the strategy so far stays readable. */
     stop: () => clientRef.current?.stop(),

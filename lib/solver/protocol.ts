@@ -31,8 +31,8 @@ export type DoneReason = "converged" | "stopped" | "max-iterations";
  * so stale replies can be dropped. Queries read the current average strategy, during or after a solve.
  */
 export type SolverRequest =
-  | { type: "estimate"; requestId: number; spot: Spot }
-  | { type: "solve"; solveId: number; spot: Spot; options?: SolveOptions }
+  | { type: "estimate"; requestId: number; spot: Spot; budgetBytes?: number }
+  | { type: "solve"; solveId: number; spot: Spot; options?: SolveOptions; budgetBytes?: number }
   | { type: "stop"; solveId: number }
   | { type: "resume"; solveId: number; options?: SolveOptions }
   | { type: "query"; solveId: number; requestId: number; path: number[] };

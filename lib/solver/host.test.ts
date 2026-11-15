@@ -38,6 +38,18 @@ describe("solver host", () => {
     expect(message.result.ok && message.result.estimate.fits).toBe(true);
   });
 
+  it("sizes and solves against the budget the page sends", async () => {
+    const { next, send } = harness();
+    const sized = next("estimate");
+    send({ budgetBytes: 1, requestId: 8, spot: river(), type: "estimate" });
+    const estimate = (await sized).result;
+    expect(estimate.ok && estimate.estimate).toMatchObject({ budgetBytes: 1, fits: false, solvable: true });
+
+    const refused = next("error");
+    send({ budgetBytes: 1, solveId: 2, spot: river(), type: "solve" });
+    expect((await refused).error).toMatchObject({ code: "over-budget", budgetBytes: 1 });
+  });
+
   it("solves to the target, reporting the estimate, progress and the result", async () => {
     const { messages, next, send } = harness(0);
     const done = next("done");

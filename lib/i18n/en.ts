@@ -363,6 +363,9 @@ export const en = {
       `${num(decisions)} decisions, about ${megabytes(memoryBytes)} of memory, ${num(oop)} vs ${num(ip)} combos.`,
     solve: "Solve",
     solveAgain: "Solve again",
+    solveAnyway: "Solve anyway",
+    overSafe: (memoryBytes: number, safeBytes: number) =>
+      `This spot needs about ${megabytes(memoryBytes)}, more than the ${megabytes(safeBytes)} this phone can safely use. The page may crash, and the solve can take several minutes. Your setup stays in the URL.`,
     continue: "Continue",
     stale: "The setup has changed since this solve. Solve again to update the strategy.",
     building: "Building the tree…",

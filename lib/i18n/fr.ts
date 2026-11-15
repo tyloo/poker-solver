@@ -348,6 +348,9 @@ export const fr: Messages = {
       `${num(decisions)} décisions, environ ${megabytes(memoryBytes)} de mémoire, ${num(oop)} contre ${num(ip)} combos.`,
     solve: "Résoudre",
     solveAgain: "Résoudre à nouveau",
+    solveAnyway: "Résoudre quand même",
+    overSafe: (memoryBytes: number, safeBytes: number) =>
+      `Ce spot demande environ ${megabytes(memoryBytes)}, plus que les ${megabytes(safeBytes)} que ce téléphone peut utiliser sans risque. La page peut planter, et le calcul peut prendre plusieurs minutes. Ta configuration reste dans l’URL.`,
     continue: "Continuer",
     stale: "Le réglage a changé depuis ce calcul. Résous à nouveau pour mettre la stratégie à jour.",
     building: "Construction de l’arbre…",

@@ -93,13 +93,13 @@ export function createSolverHost(
   function handle(request: SolverRequest): void {
     switch (request.type) {
       case "estimate":
-        post({ requestId: request.requestId, result: estimateSpot(request.spot), type: "estimate" });
+        post({ requestId: request.requestId, result: estimateSpot(request.spot, request.budgetBytes), type: "estimate" });
         return;
       case "solve": {
         job = null;
         let solver: Solver;
         try {
-          solver = new Solver(request.spot);
+          solver = new Solver(request.spot, { budgetBytes: request.budgetBytes });
         } catch (error) {
           post({ error: solverErrorOf(error), solveId: request.solveId, type: "error" });
           return;

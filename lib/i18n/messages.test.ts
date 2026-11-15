@@ -47,6 +47,7 @@ describe("numbers in the text", () => {
     ["solver.estimate decisions", (t) => t.solver.estimate(big, 2 ** 20, 1, 1)],
     ["solver.estimate OOP combos", (t) => t.solver.estimate(1, 2 ** 20, big, 1)],
     ["solver.estimate IP combos", (t) => t.solver.estimate(1, 2 ** 20, 1, big)],
+    ["solver.overSafe", (t) => t.solver.overSafe(big * 2 ** 20, 2 ** 20)],
     ["solver.measuring", (t) => t.solver.measuring(big)],
     ["solver.running", (t) => t.solver.running(big, 0.01, 1000)],
     ["solver.converged", (t) => t.solver.converged(0.01, big, 1000)],

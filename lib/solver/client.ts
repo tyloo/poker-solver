@@ -22,10 +22,13 @@ export type SolveHandlers = {
 };
 
 export type SolverClient = {
-  /** Tree size and memory for a Spot, without solving (the solve refuses Spots over budget). */
-  estimate(spot: Spot): Promise<EstimateResult>;
-  /** Builds the tree and solves until the target, the iteration cap or `stop()`. Rejects with a `SolverFailure`, e.g. on an invalid Spot. */
-  solve(spot: Spot, options?: SolveOptions, handlers?: SolveHandlers): Promise<SolveResult>;
+  /** Tree size and memory for a Spot, without solving, against a memory budget (the solve refuses Spots over it). */
+  estimate(spot: Spot, budgetBytes?: number): Promise<EstimateResult>;
+  /**
+   * Builds the tree and solves until the target, the iteration cap or `stop()`. Rejects with a `SolverFailure`, e.g. on an
+   * invalid Spot or one over `budgetBytes`.
+   */
+  solve(spot: Spot, options?: SolveOptions, handlers?: SolveHandlers, budgetBytes?: number): Promise<SolveResult>;
   /** Ends the current solve after its slice; the strategy so far stays queryable. */
   stop(): void;
   /** Continues the last solve, e.g. with a higher `maxIterations` or a lower target. */
@@ -87,7 +90,7 @@ export function connectSolver(port: SolverPort): SolverClient {
       port.removeEventListener("message", listener);
       port.terminate?.();
     },
-    estimate: (spot) => request<EstimateResult>((id) => ({ requestId: id, spot, type: "estimate" })),
+    estimate: (spot, budgetBytes) => request<EstimateResult>((id) => ({ budgetBytes, requestId: id, spot, type: "estimate" })),
     query(path) {
       if (solveId === 0) return Promise.reject(new SolverFailure({ code: "not-started" }));
       const id = solveId;
@@ -100,10 +103,10 @@ export function connectSolver(port: SolverPort): SolverClient {
       port.postMessage({ options, solveId, type: "resume" });
       return result;
     },
-    solve(spot, options, handlers = {}) {
+    solve(spot, options, handlers = {}, budgetBytes) {
       const id = ++solveId;
       const result = track(id, handlers);
-      port.postMessage({ options, solveId: id, spot, type: "solve" });
+      port.postMessage({ budgetBytes, options, solveId: id, spot, type: "solve" });
       return result;
     },
     stop() {

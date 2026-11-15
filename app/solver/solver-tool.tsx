@@ -91,12 +91,15 @@ export function SolverTool() {
   const heroClass = hand ? handClassOfCombo(comboId(hand[0], hand[1])) : null;
   const running = run.status === "running";
   const stale = run.status !== "idle" && run.key !== resolved.key;
-  const fits = estimate?.ok === true && estimate.estimate.fits;
+  const sized = estimate?.ok ? estimate.estimate : null;
+  const fits = sized?.fits === true;
+  /** Over this phone's safe memory limit but under the hard cap: the user may solve anyway. */
+  const risky = sized !== null && !sized.fits && sized.solvable;
   if (run.status === "done" && browsable !== solveCount) setBrowsable(solveCount);
 
   const solve = () => {
     setSolveCount(solveCount + 1);
-    solver.solve();
+    solver.solve(risky);
   };
 
   const toggleBet = (size: number) => {
@@ -244,7 +247,9 @@ export function SolverTool() {
                 ? solverErrorText(estimate.error, players, locale)
                 : estimate.estimate.fits
                   ? text.estimate(estimate.estimate.actionNodes, estimate.estimate.memoryBytes, estimate.estimate.combos[0], estimate.estimate.combos[1])
-                  : resolved.spot && solverErrorText(overBudget(estimate.estimate, resolved.spot), players, locale)}
+                  : estimate.estimate.solvable
+                    ? text.overSafe(estimate.estimate.memoryBytes, estimate.estimate.budgetBytes)
+                    : resolved.spot && solverErrorText(overBudget({ ...estimate.estimate, budgetBytes: estimate.estimate.maxBytes }, resolved.spot), players, locale)}
         </p>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -253,8 +258,8 @@ export function SolverTool() {
               {t.common.stop}
             </button>
           ) : (
-            <button type="button" disabled={!resolved.spot || !fits} onClick={solve} className={primaryButton}>
-              {run.status === "idle" ? text.solve : text.solveAgain}
+            <button type="button" disabled={!resolved.spot || !(fits || risky)} onClick={solve} className={primaryButton}>
+              {risky ? text.solveAnyway : run.status === "idle" ? text.solve : text.solveAgain}
             </button>
           )}
           {run.status === "done" && run.reason !== "converged" && !stale && (

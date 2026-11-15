@@ -25,3 +25,22 @@ export function parseCards(text: string): Card[] | null {
 export function formatCards(cards: readonly Card[]): string {
   return cards.map((card) => card.rank + card.suit).join("");
 }
+
+/**
+ * Numeric card for hot loops: `rank * 4 + suit`, where rank 0 is a deuce and 12 an ace,
+ * and suit indexes SUITS. Deuce of spades is 0, ace of clubs is 51.
+ */
+export type CardId = number;
+
+export const CARD_COUNT = 52;
+
+export const cardRank = (id: CardId): number => id >> 2;
+export const cardSuit = (id: CardId): number => id & 3;
+
+export function cardId(card: Card): CardId {
+  return (12 - RANKS.indexOf(card.rank)) * 4 + SUITS.indexOf(card.suit);
+}
+
+export function cardFromId(id: CardId): Card {
+  return { rank: RANKS[12 - cardRank(id)], suit: SUITS[cardSuit(id)] };
+}

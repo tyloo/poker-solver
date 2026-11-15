@@ -2,7 +2,8 @@
   "name": "poker-solver",
   "version": "0.1.0",
   "private": true,
-  "description": "Personal mobile NLHE study and quick-check tool for live 8-max freerolls",
+  "description": "Mobile-first No-Limit Hold'em study tool: preflop charts, equity, push/fold and a CFR solver, all in the browser",
+  "license": "MIT",
   "scripts": {
     "dev": "next dev",
     "build": "next build && node scripts/precache.mjs",
